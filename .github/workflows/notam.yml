@@ -1,0 +1,40 @@
+name: 항공고시보 갱신
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'   # 30분마다 (매시 7분, 37분)
+  workflow_dispatch: {}       # Actions 탭에서 수동 실행
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/fetch_notam.py'
+      - '.github/workflows/notam.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: notam
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 항공고시보 가져오기
+        run: python3 scripts/fetch_notam.py
+
+      - name: 바뀌었으면 저장
+        run: |
+          git config user.name "notam-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if [ -n "$(git status --porcelain notam.json)" ]; then
+            git add notam.json
+            git commit -m "항공고시보 갱신 $(TZ=Asia/Seoul date +'%m-%d %H:%M')"
+            git pull --rebase --autostash || true
+            git push
+          else
+            echo "변경 없음"
+          fi
