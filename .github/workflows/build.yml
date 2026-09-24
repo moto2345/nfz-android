@@ -28,13 +28,24 @@ jobs:
       - name: 서명키 준비
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          else
-            echo "::warning::KEYSTORE_BASE64 Secret이 없어 임시 키로 서명합니다. 이 경우 업데이트할 때마다 앱을 지우고 다시 설치해야 합니다."
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 Secret이 없어 임시 키로 서명합니다."
+            exit 0
           fi
+          # 붙여넣을 때 섞인 공백·줄바꿈 제거 후 파일로 복원
+          printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t' > "$RUNNER_TEMP/ks.b64"
+          if ! base64 -d "$RUNNER_TEMP/ks.b64" > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
+            echo "::error::KEYSTORE_BASE64 값이 올바르지 않습니다. GitHub_Secrets_값.txt 맨 아래의 긴 한 줄(/u3+7QAAAA…로 시작)을 전부 다시 붙여넣으세요."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+            echo "::error::서명키를 열 수 없습니다. KEYSTORE_PASSWORD(비밀번호) 또는 KEYSTORE_BASE64 값을 다시 확인하세요."
+            exit 1
+          fi
+          echo "서명키 확인 완료"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: APK 빌드
         env:
