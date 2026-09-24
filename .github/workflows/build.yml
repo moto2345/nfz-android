@@ -12,14 +12,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -34,14 +32,13 @@ jobs:
             echo "::warning::KEYSTORE_BASE64 Secret이 없어 임시 키로 서명합니다."
             exit 0
           fi
-          # 붙여넣을 때 섞인 공백·줄바꿈 제거 후 파일로 복원
           printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t' > "$RUNNER_TEMP/ks.b64"
           if ! base64 -d "$RUNNER_TEMP/ks.b64" > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
-            echo "::error::KEYSTORE_BASE64 값이 올바르지 않습니다. GitHub_Secrets_값.txt 맨 아래의 긴 한 줄(/u3+7QAAAA…로 시작)을 전부 다시 붙여넣으세요."
+            echo "::error::KEYSTORE_BASE64 값이 올바르지 않습니다. GitHub_Secrets_값.txt 맨 아래의 긴 한 줄을 전부 다시 붙여넣으세요."
             exit 1
           fi
           if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
-            echo "::error::서명키를 열 수 없습니다. KEYSTORE_PASSWORD(비밀번호) 또는 KEYSTORE_BASE64 값을 다시 확인하세요."
+            echo "::error::서명키를 열 수 없습니다. KEYSTORE_PASSWORD 또는 KEYSTORE_BASE64 값을 다시 확인하세요."
             exit 1
           fi
           echo "서명키 확인 완료"
@@ -50,7 +47,21 @@ jobs:
       - name: APK 빌드
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: |
+          echo "Android SDK: $ANDROID_HOME"
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: 오류 요약
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            msg=$(grep -E "What went wrong|error:|Could not|FAILURE|Exception" -A2 build.log | head -30)
+          else
+            msg="빌드 전에 실패했습니다. 위쪽 단계 중 X 표시된 단계를 확인하세요."
+          fi
+          msg="${msg//'%'/'%25'}"; msg="${msg//$'\n'/'%0A'}"
+          echo "::error title=빌드 실패 원인::$msg"
 
       - name: 파일 이름 정리
         run: cp app/build/outputs/apk/release/app-release.apk hako-nfz.apk
