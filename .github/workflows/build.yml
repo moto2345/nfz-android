@@ -64,13 +64,13 @@ jobs:
           echo "::error title=빌드 실패 원인::$msg"
 
       - name: 파일 이름 정리
-        run: cp app/build/outputs/apk/release/app-release.apk hako-nfz.apk
+        run: cp app/build/outputs/apk/release/app-release.apk HACO-NFZ.apk
 
       - name: 빌드 결과 보관
         uses: actions/upload-artifact@v4
         with:
-          name: hako-nfz-apk
-          path: hako-nfz.apk
+          name: HACO-NFZ-apk
+          path: HACO-NFZ.apk
 
       - name: 다운로드 페이지(Release)에 올리기
         uses: softprops/action-gh-release@v2
@@ -79,6 +79,6 @@ jobs:
           name: 하코 NFZ 조회 v1.0.${{ github.run_number }}
           body: |
             하코 NFZ 조회 안드로이드 앱입니다.
-            아래 **hako-nfz.apk** 를 눌러 내려받아 설치하세요.
-          files: hako-nfz.apk
+            아래 **HACO-NFZ.apk** 를 눌러 내려받아 설치하세요.
+          files: HACO-NFZ.apk
           make_latest: true
