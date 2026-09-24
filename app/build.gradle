@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int
+def ksFile = System.getenv('KEYSTORE_FILE')
+
+android {
+    namespace 'io.github.moto2345.nfz'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.moto2345.nfz'
+        minSdk 24
+        targetSdk 34
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS') ?: 'hakonfz'
+                keyPassword System.getenv('KEY_PASSWORD') ?: System.getenv('KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // 서명키(Secrets)가 있으면 그 키로, 없으면 임시 디버그 키로 서명
+            signingConfig ksFile ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
