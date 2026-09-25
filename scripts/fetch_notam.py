@@ -38,6 +38,7 @@ QLINE = re.compile(r"Q\)\s*(\w{4})/(Q\w{4})/(\w*)/(\w*)/(\w*)/(\d{3})/(\d{3})/(\
 DMS = re.compile(r"(\d{2})(\d{2})(\d{2}(?:\.\d+)?)\s*([NS])\s*[,/ ]?\s*(\d{3})(\d{2})(\d{2}(?:\.\d+)?)\s*([EW])")
 DM = re.compile(r"(?<!\d)(\d{2})(\d{2})([NS])\s*[,/ ]?\s*(\d{3})(\d{2})([EW])")
 RADIUS = re.compile(r"(?:RADIUS|RDS|반경)\s*(?:OF\s*)?([\d.]+)\s*(NM|KM|M)\b", re.I)
+RADIUS_PRE = re.compile(r"([\d.]+)\s*(NM|KM|M)\s*(?:RADIUS|RDS|반경)", re.I)
 HEAD = re.compile(r"([A-Z]\d{4}/\d{2})\s+NOTAM([NRC])\b\s*([A-Z]\d{4}/\d{2})?")
 KIND = {"QRP": ("P", "임시비행금지구역"), "QRR": ("R", "임시비행제한구역"), "QRT": ("R", "임시비행제한구역"),
         "QRD": ("D", "임시위험구역"), "QWU": ("U", "드론 활동 구역")}
@@ -98,6 +99,8 @@ def fetch_all():
         for r in new:
             seen.add(str(r.get("SEQ") or r.get("NOTAM_NO")))
         out.extend(new)
+    else:
+        print(f"::warning::{MAX_PAGES}쪽까지 받아도 끝나지 않았습니다. 일부 NOTAM이 빠졌을 수 있습니다.")
     return out
 
 
@@ -132,7 +135,12 @@ def circle(lat, lon, r_m, n=48):
 
 
 def field(full, letter, nxt):
-    m = re.search(rf"{letter}\)\s*(.*?)\s*(?={nxt}\)|$)", full, re.S)
+    # 항목 기호는 줄 처음이나 공백 뒤에만 옴. D)는 E) 앞부분에서만 찾음 (E 본문 속 "(D)" 등과 구분)
+    src = full
+    if letter in ("A", "B", "C", "D"):
+        e = re.search(r"(?:^|\s)E\)", full)
+        src = full[:e.start()] if e else full
+    m = re.search(rf"(?:^|\s){letter}\)\s*(.*?)\s*(?=(?:^|\s)(?:{nxt})\)|$)", src, re.S)
     return re.sub(r"\s+", " ", m.group(1)).strip().rstrip(")") if m else ""
 
 
@@ -170,12 +178,38 @@ def parse(rec):
     pts = [(dms(*m.groups()[0:3], m.group(4)), dms(*m.groups()[4:7], m.group(8))) for m in DMS.finditer(etext)]
     if not pts:
         pts = [(dms(m.group(1), m.group(2), 0, m.group(3)), dms(m.group(4), m.group(5), 0, m.group(6))) for m in DM.finditer(etext)]
-    rm = RADIUS.search(etext)
-    if rm and pts:
-        v, u = float(rm.group(1)), rm.group(2).upper()
-        radius_m = v * (1852 if u == "NM" else 1000 if u == "KM" else 1)
-        center = pts[0]
-        geom = circle(center[0], center[1], radius_m)
+    # 반경 표현마다 가장 가까운 좌표를 중심으로 원을 만듦 (여러 원이면 모두)
+    coord_pos = [(m.start(), m.end()) for m in DMS.finditer(etext)] or [(m.start(), m.end()) for m in DM.finditer(etext)]
+    rads = [(m.start(), m.end(), m.group(1), m.group(2)) for m in RADIUS.finditer(etext)] + [(m.start(), m.end(), m.group(1), m.group(2)) for m in RADIUS_PRE.finditer(etext)]
+    circles = []
+    if rads and pts and len(coord_pos) == len(pts):
+        used = set()
+        for rpos, rend, v, u in sorted(rads):
+            free = [k for k in range(len(pts)) if k not in used]
+            if not free:
+                break
+            # 반경 글자와 좌표 사이 간격이 가장 짧은 좌표를 짝으로 ("RADIUS 1KM CENTERED ON <좌표>" / "<좌표> RADIUS 1NM" 모두)
+            def gap(k):
+                a0, a1 = coord_pos[k]
+                return a0 - rend if a0 >= rend else rpos - a1 if a1 <= rpos else 0
+            i = min(free, key=lambda k: (gap(k), 0 if coord_pos[k][0] >= rend else 1))
+            used.add(i)
+            circles.append((pts[i], float(v) * (1852 if u.upper() == "NM" else 1000 if u.upper() == "KM" else 1)))
+    if circles:
+        center, radius_m = circles[0]
+        parts = [circle(c[0], c[1], r)["coordinates"] for c, r in circles]
+        # 원 말고 남은 좌표가 3개 이상이면 그것도 다각형 구역으로 함께
+        rest = [p for p in pts if all(p is not c for c, _ in circles)]
+        if len(rest) >= 3:
+            ring = [[round(lo, 6), round(la, 6)] for la, lo in rest]
+            if ring[0] != ring[-1]:
+                ring.append(ring[0])
+            parts.append([ring])
+        if len(parts) == 1:
+            geom = {"type": "Polygon", "coordinates": parts[0]}
+        else:
+            geom = {"type": "MultiPolygon", "coordinates": parts}
+            radius_m = max(r for _, r in circles)
     elif len(pts) >= 3:
         ring = [[round(lo, 6), round(la, 6)] for la, lo in pts]
         if ring[0] != ring[-1]:
@@ -235,6 +269,19 @@ def main():
                 return 0
         print(f"::error::항공고시보를 {STALE_HOURS}시간 넘게 가져오지 못했습니다: {e}")
         return 1
+
+    # 서버가 빈 목록이나 평소보다 훨씬 적은 목록을 주면(점검·차단 등) 기존 자료를 지키고 실패로 알림
+    prev_total = (prev or {}).get("totalFetched") or 0
+    if not records or (prev_total >= 200 and len(records) < prev_total * 0.3):
+        age = (datetime.now(UTC) - datetime.fromisoformat(prev["fetchedAtUTC"])).total_seconds() / 3600 if prev and prev.get("fetchedAtUTC") else 99
+        msg = f"xNOTAM이 {len(records)}건만 돌려줬습니다(이전 {prev_total}건)"
+        if age < STALE_HOURS:
+            print(f"::warning::{msg} — 기존 자료를 유지합니다.")
+            return 0
+        if not records:
+            print(f"::error::{msg} — {STALE_HOURS}시간 넘게 정상 자료를 받지 못했습니다.")
+            return 1
+        print(f"::warning::{msg} — {STALE_HOURS}시간 넘게 계속 적게 와서 실제로 줄어든 것으로 보고 새 자료로 바꿉니다.")
 
     # NOTAMR(대체)·NOTAMC(취소)가 가리키는 이전 NOTAM은 빼기
     gone = set()
