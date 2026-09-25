@@ -38,6 +38,9 @@ QLINE = re.compile(r"Q\)\s*(\w{4})/(Q\w{4})/(\w*)/(\w*)/(\w*)/(\d{3})/(\d{3})/(\
 DMS = re.compile(r"(\d{2})(\d{2})(\d{2}(?:\.\d+)?)\s*([NS])\s*[,/ ]?\s*(\d{3})(\d{2})(\d{2}(?:\.\d+)?)\s*([EW])")
 DM = re.compile(r"(?<!\d)(\d{2})(\d{2})([NS])\s*[,/ ]?\s*(\d{3})(\d{2})([EW])")
 RADIUS = re.compile(r"(?:RADIUS|RDS|반경)\s*(?:OF\s*)?([\d.]+)\s*(NM|KM|M)\b", re.I)
+HEAD = re.compile(r"([A-Z]\d{4}/\d{2})\s+NOTAM([NRC])\b\s*([A-Z]\d{4}/\d{2})?")
+KIND = {"QRP": ("P", "임시비행금지구역"), "QRR": ("R", "임시비행제한구역"), "QRT": ("R", "임시비행제한구역"),
+        "QRD": ("D", "임시위험구역"), "QWU": ("U", "드론 활동 구역")}
 
 
 def log(*a):
@@ -136,6 +139,11 @@ def field(full, letter, nxt):
 def parse(rec):
     full = rec.get("FULL_TEXT") or ""
     etext = (rec.get("ECODE") or field(full, "E", "[FG]") or "").strip()
+    h = HEAD.search(full[:120])
+    if h and h.group(2) == "C":
+        return None  # 취소 공지
+    if re.search(r"NOTAM\s+CNL|NEW NOTAM TO FLW", etext, re.I) or (rec.get("QCODE") or "").upper()[-2:] in ("CN", "XX"):
+        return None  # 취소·대체 안내문(영역 없음)
     q = QLINE.search(full)
     qcode = (rec.get("QCODE") or (q.group(2) if q else "") or "").upper()
     lower = int(q.group(6)) if q else 0
@@ -181,8 +189,11 @@ def parse(rec):
             radius_m = r_nm * 1852
             geom = circle(center[0], center[1], radius_m)
 
+    kind, kname = KIND.get(qcode[:3], ("U" if category == "drone" else "R", "드론 관련 구역" if category == "drone" else "임시비행제한구역"))
     return {
         "no": rec.get("NOTAM_NO") or "",
+        "kind": kind,
+        "kindName": kname,
         "series": rec.get("SERIES") or "",
         "location": rec.get("LOCATION") or "",
         "qcode": qcode,
@@ -225,7 +236,21 @@ def main():
         print(f"::error::항공고시보를 {STALE_HOURS}시간 넘게 가져오지 못했습니다: {e}")
         return 1
 
-    items = [x for x in (parse(r) for r in records) if x]
+    # NOTAMR(대체)·NOTAMC(취소)가 가리키는 이전 NOTAM은 빼기
+    gone = set()
+    for r in records:
+        h = HEAD.search((r.get("FULL_TEXT") or "")[:120])
+        if h and h.group(2) in "RC" and h.group(3):
+            gone.add(h.group(3))
+    items, seen = [], set()
+    for x in (parse(r) for r in records):
+        if not x or x["no"] in gone:
+            continue
+        key = (x["text"], x["start"], x["end"], tuple(x["center"] or ()))
+        if key in seen:
+            continue  # 같은 내용 중복 공지
+        seen.add(key)
+        items.append(x)
     items.sort(key=lambda x: (x["start"] or ""))
     now = datetime.now(UTC)
     if prev and prev.get("items") == items and prev.get("fetchedAtUTC"):
