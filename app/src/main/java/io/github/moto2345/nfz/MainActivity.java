@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
 
     private static final String HOME_URL = "https://moto2345.github.io/nfz/";
     private static final String HOME_HOST = "moto2345.github.io";
+    private static final String HOME_PATH = "/nfz/";
+    private volatile String currentUrl = ""; // 앱 기능(NFZApp)은 우리 페이지에서만 허용
     private static final int REQ_LOCATION = 1;
     private static final int REQ_STORAGE = 2;
     private static final int REQ_FILE = 3;
@@ -105,7 +107,7 @@ public class MainActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
-            if ("https".equals(uri.getScheme()) && HOME_HOST.equals(uri.getHost())) return false;
+            if (isHome(uri)) return false; // 앱 페이지만 앱 안에서, 같은 주소의 다른 사이트는 밖에서
             try {
                 Intent i = "tel".equals(uri.getScheme())
                         ? new Intent(Intent.ACTION_DIAL, uri)
@@ -118,9 +120,36 @@ public class MainActivity extends Activity {
         }
 
         @Override
+        public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            currentUrl = url == null ? "" : url;
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            currentUrl = url == null ? "" : url;
+        }
+
+        @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             if (request.isForMainFrame()) showOffline(view);
         }
+    }
+
+    private static boolean isHome(Uri uri) {
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        return "https".equals(uri.getScheme()) && HOME_HOST.equals(uri.getHost())
+                && (path.equals("/nfz") || path.startsWith(HOME_PATH));
+    }
+
+    private boolean fromHome() {
+        try { return isHome(Uri.parse(currentUrl)); } catch (Exception e) { return false; }
+    }
+
+    // 파일 이름에서 폴더 이동(../)·특수문자를 없앰
+    private static String safeName(String name) {
+        String n = name == null ? "" : name.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1f]", "_").replace("..", "_").trim();
+        if (n.isEmpty()) n = "nfz_file.txt";
+        return n.length() > 100 ? n.substring(n.length() - 100) : n;
     }
 
     private void showOffline(WebView view) {
@@ -229,7 +258,10 @@ public class MainActivity extends Activity {
     /* ───────── 웹앱에서 부르는 기능 (window.NFZApp) ───────── */
     private class Bridge {
         @JavascriptInterface
-        public void saveFile(final String name, final String content, final String mime) {
+        public void saveFile(final String rawName, final String content, final String rawMime) {
+            if (!fromHome()) return;
+            final String name = safeName(rawName);
+            final String mime = "text/csv".equals(rawMime) || "application/json".equals(rawMime) ? rawMime : "text/plain";
             runOnUiThread(() -> {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
                         && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -243,6 +275,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void share(final String text) {
+            if (!fromHome()) return;
             runOnUiThread(() -> {
                 Intent i = new Intent(Intent.ACTION_SEND);
                 i.setType("text/plain");
