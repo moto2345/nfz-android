@@ -28,7 +28,7 @@ KST = timezone(timedelta(hours=9))
 UTC = timezone.utc
 OUT = os.environ.get("NOTAM_OUT", "notam.json")
 BASE = os.environ.get("NOTAM_BASE", "https://aim.koca.go.kr/xNotam/searchAllNotam.do")
-STALE_HOURS = 3        # 이 시간 넘게 갱신 못 하면 실패로 알림
+STALE_HOURS = 6        # 이 시간 넘게 갱신 못 하면 실패로 알림 (GitHub 예약 실행이 불규칙해서 여유 있게)
 REFRESH_HOURS = 3      # 내용이 같아도 이 간격마다는 '확인 시각'을 갱신
 MAX_PAGES = 40
 AHEAD_DAYS = 14        # 앞으로 14일 안에 시작하는 것까지 포함
