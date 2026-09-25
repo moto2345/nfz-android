@@ -34,8 +34,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::KEYSTORE_BASE64 Secret이 없어 임시 키로 서명합니다."
-            exit 0
+            # 임시 키로 서명된 APK는 기존 앱 위에 설치되지 않아(지우고 다시 깔면 기록이 사라짐) 배포하지 않음
+            echo "::error::KEYSTORE_BASE64 Secret이 없습니다. 저장소 Settings → Secrets에 서명키를 넣어 주세요."
+            exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t' > "$RUNNER_TEMP/ks.b64"
           if ! base64 -d "$RUNNER_TEMP/ks.b64" > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
