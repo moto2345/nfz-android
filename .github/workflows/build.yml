@@ -3,6 +3,11 @@ name: APK 빌드
 on:
   push:
     branches: [ main ]
+    paths-ignore:          # 항공고시보 자료·설명서만 바뀌면 APK를 다시 만들지 않음
+      - 'notam.json'
+      - 'scripts/**'
+      - '.github/workflows/notam.yml'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:
