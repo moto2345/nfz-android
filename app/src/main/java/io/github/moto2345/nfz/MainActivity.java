@@ -7,10 +7,16 @@ import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.GnssStatus;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
@@ -47,6 +53,13 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback geoCallback;
     private ValueCallback<Uri[]> fileCallback;
     private String[] pendingSave; // 저장 권한을 기다리는 파일 {이름, 내용, 형식}
+
+    // GPS 위성 수 (실시간 추적 중에만 켬) — 웹 브라우저로는 알 수 없는 값이라 앱에서 알려 줌
+    private LocationManager locationManager;
+    private GnssStatus.Callback gnssCallback;
+    private LocationListener gpsListener;
+    private boolean gnssWanted = false, gnssRunning = false;
+    private volatile int satUsed = -1, satSeen = -1;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -85,10 +98,10 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); }
+    protected void onResume() { super.onResume(); web.onResume(); if (gnssWanted) startGnss(); }
 
     @Override
-    protected void onPause() { web.onPause(); super.onPause(); }
+    protected void onPause() { stopGnss(); web.onPause(); super.onPause(); } // 화면을 떠나면 배터리 절약
 
     private String appVersion() {
         try {
@@ -255,6 +268,47 @@ public class MainActivity extends Activity {
         }
     }
 
+    /* ───────── GPS 위성 수 ───────── */
+    private void startGnss() {
+        if (gnssRunning || !hasLocationPermission()) return;
+        if (locationManager == null) locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (locationManager == null) return;
+        if (gnssCallback == null) gnssCallback = new GnssStatus.Callback() {
+            @Override
+            public void onSatelliteStatusChanged(GnssStatus status) {
+                int used = 0, n = status.getSatelliteCount();
+                for (int i = 0; i < n; i++) if (status.usedInFix(i)) used++;
+                satUsed = used;
+                satSeen = n;
+            }
+
+            @Override
+            public void onStopped() { satUsed = -1; satSeen = -1; }
+        };
+        if (gpsListener == null) gpsListener = new LocationListener() { // GPS 칩을 켜 두기 위한 빈 수신기
+            @Override public void onLocationChanged(Location location) {}
+            @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+            @Override public void onProviderEnabled(String provider) {}
+            @Override public void onProviderDisabled(String provider) { satUsed = -1; satSeen = -1; }
+        };
+        try {
+            locationManager.registerGnssStatusCallback(gnssCallback, new Handler(Looper.getMainLooper()));
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, gpsListener, Looper.getMainLooper());
+            gnssRunning = true;
+        } catch (Exception e) {
+            gnssRunning = false;
+        }
+    }
+
+    private void stopGnss() {
+        if (!gnssRunning || locationManager == null) return;
+        try { locationManager.unregisterGnssStatusCallback(gnssCallback); } catch (Exception ignored) {}
+        try { locationManager.removeUpdates(gpsListener); } catch (Exception ignored) {}
+        gnssRunning = false;
+        satUsed = -1;
+        satSeen = -1;
+    }
+
     /* ───────── 웹앱에서 부르는 기능 (window.NFZApp) ───────── */
     private class Bridge {
         @JavascriptInterface
@@ -282,6 +336,23 @@ public class MainActivity extends Activity {
                 i.putExtra(Intent.EXTRA_TEXT, text);
                 startActivity(Intent.createChooser(i, "비행 지점 공유"));
             });
+        }
+
+        @JavascriptInterface
+        public void gnssStart() {
+            if (!fromHome()) return;
+            runOnUiThread(() -> { gnssWanted = true; startGnss(); });
+        }
+
+        @JavascriptInterface
+        public void gnssStop() {
+            runOnUiThread(() -> { gnssWanted = false; stopGnss(); });
+        }
+
+        // {"used": 위치 계산에 쓰는 위성 수, "seen": 보이는 위성 수} (-1 = 아직 모름)
+        @JavascriptInterface
+        public String gnss() {
+            return "{\"used\":" + satUsed + ",\"seen\":" + satSeen + "}";
         }
 
         @JavascriptInterface
