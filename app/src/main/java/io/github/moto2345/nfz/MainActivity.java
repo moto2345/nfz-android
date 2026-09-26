@@ -7,7 +7,12 @@ import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.GnssStatus;
+import android.location.altitude.AltitudeConverter;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -33,6 +38,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 하코 NFZ 조회 — 웹앱(https://moto2345.github.io/nfz/)을 감싸는 안드로이드 앱.
@@ -60,6 +69,19 @@ public class MainActivity extends Activity {
     private LocationListener gpsListener;
     private boolean gnssWanted = false, gnssRunning = false;
     private volatile int satUsed = -1, satSeen = -1;
+
+    // 기압계(있는 폰만) — 해발고도를 GPS보다 안정적으로 계산하는 데 씀
+    private SensorManager sensorManager;
+    private SensorEventListener baroListener;
+    private boolean baroRunning = false;
+    private volatile double baroHpa = Double.NaN;
+    private volatile long baroAt = 0;
+
+    // 지오이드 높이(타원체 고도 − 해발고도, 우리나라 약 20~30m) — 안드로이드 14 이상에서 계산
+    private final ExecutorService altExec = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean altBusy = new AtomicBoolean(false);
+    private volatile double geoidM = Double.NaN;
+    private volatile long geoidAt = 0;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -270,6 +292,7 @@ public class MainActivity extends Activity {
 
     /* ───────── GPS 위성 수 ───────── */
     private void startGnss() {
+        startBaro(); // 기압계는 위치 권한과 상관없이 켤 수 있음
         if (gnssRunning || !hasLocationPermission()) return;
         if (locationManager == null) locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (locationManager == null) return;
@@ -286,7 +309,7 @@ public class MainActivity extends Activity {
             public void onStopped() { satUsed = -1; satSeen = -1; }
         };
         if (gpsListener == null) gpsListener = new LocationListener() { // GPS 칩을 켜 두기 위한 빈 수신기
-            @Override public void onLocationChanged(Location location) {}
+            @Override public void onLocationChanged(Location location) { updateGeoid(location); }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
             @Override public void onProviderEnabled(String provider) {}
             @Override public void onProviderDisabled(String provider) { satUsed = -1; satSeen = -1; }
@@ -300,13 +323,67 @@ public class MainActivity extends Activity {
         }
     }
 
+    /* ───────── 기압계 ───────── */
+    private void startBaro() {
+        if (baroRunning) return;
+        if (sensorManager == null) sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        Sensor s = sensorManager == null ? null : sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        if (s == null) return; // 기압계 없는 폰
+        if (baroListener == null) baroListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent e) {
+                double v = e.values[0];
+                if (!(v > 300 && v < 1100)) return; // 말도 안 되는 값은 버림
+                // 약 2초 평균으로 흔들림을 줄임 (측정 주기 약 0.2초)
+                baroHpa = Double.isNaN(baroHpa) || System.currentTimeMillis() - baroAt > 5000 ? v : baroHpa + (v - baroHpa) * 0.1;
+                baroAt = System.currentTimeMillis();
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+        };
+        try {
+            baroRunning = sensorManager.registerListener(baroListener, s, SensorManager.SENSOR_DELAY_NORMAL);
+        } catch (Exception e) {
+            baroRunning = false;
+        }
+    }
+
+    private void stopBaro() {
+        if (!baroRunning || sensorManager == null) return;
+        try { sensorManager.unregisterListener(baroListener); } catch (Exception ignored) {}
+        baroRunning = false;
+        baroHpa = Double.NaN;
+    }
+
+    /* ───────── 지오이드 높이 (안드로이드 14+) ───────── */
+    private void updateGeoid(Location loc) {
+        if (Build.VERSION.SDK_INT < 34 || loc == null || !loc.hasAltitude()) return;
+        if (System.currentTimeMillis() - geoidAt < 30000 && !Double.isNaN(geoidM)) return; // 천천히 변하는 값이라 30초마다
+        if (!altBusy.compareAndSet(false, true)) return;
+        final Location copy = new Location(loc);
+        altExec.execute(() -> {
+            try {
+                new AltitudeConverter().addMslAltitudeToLocation(getApplicationContext(), copy); // 파일을 읽으므로 화면 스레드 밖에서
+                if (copy.hasMslAltitude()) {
+                    geoidM = copy.getAltitude() - copy.getMslAltitudeMeters();
+                    geoidAt = System.currentTimeMillis();
+                }
+            } catch (Throwable ignored) {
+            } finally {
+                altBusy.set(false);
+            }
+        });
+    }
+
     private void stopGnss() {
-        if (!gnssRunning || locationManager == null) return;
+        if (!gnssRunning || locationManager == null) { stopBaro(); return; }
         try { locationManager.unregisterGnssStatusCallback(gnssCallback); } catch (Exception ignored) {}
         try { locationManager.removeUpdates(gpsListener); } catch (Exception ignored) {}
         gnssRunning = false;
         satUsed = -1;
         satSeen = -1;
+        stopBaro();
     }
 
     /* ───────── 웹앱에서 부르는 기능 (window.NFZApp) ───────── */
@@ -349,10 +426,15 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> { gnssWanted = false; stopGnss(); });
         }
 
-        // {"used": 위치 계산에 쓰는 위성 수, "seen": 보이는 위성 수} (-1 = 아직 모름)
+        // {"used": 위치 계산에 쓰는 위성 수, "seen": 보이는 위성 수 (-1 = 아직 모름),
+        //  "hpa": 기압(hPa, 기압계 없으면 null), "geoid": 지오이드 높이(m, 모르면 null)}
         @JavascriptInterface
         public String gnss() {
-            return "{\"used\":" + satUsed + ",\"seen\":" + satSeen + "}";
+            double p = baroHpa, g = geoidM;
+            boolean pOk = !Double.isNaN(p) && System.currentTimeMillis() - baroAt < 5000;
+            return "{\"used\":" + satUsed + ",\"seen\":" + satSeen
+                    + ",\"hpa\":" + (pOk ? String.format(Locale.US, "%.2f", p) : "null")
+                    + ",\"geoid\":" + (Double.isNaN(g) ? "null" : String.format(Locale.US, "%.1f", g)) + "}";
         }
 
         @JavascriptInterface
