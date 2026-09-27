@@ -1,61 +1,10 @@
 {
- "fetchedAt": "2026-09-27T15:31:18+09:00",
- "fetchedAtUTC": "2026-09-27T06:31:18+00:00",
+ "fetchedAt": "2026-09-28T02:14:18+09:00",
+ "fetchedAtUTC": "2026-09-27T17:14:18+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1425,
- "count": 208,
+ "totalFetched": 1383,
+ "count": 206,
  "items": [
-  {
-   "no": "D2486/26",
-   "kind": "D",
-   "kindName": "임시위험구역",
-   "series": "D",
-   "location": "RKRR",
-   "qcode": "QRDCA",
-   "qmean": "Danger area (specify) / Activated",
-   "category": "drone",
-   "start": "2026-08-28T21:30:00+00:00",
-   "end": "2026-09-27T09:30:00+00:00",
-   "endEst": false,
-   "schedule": "2130-0930",
-   "lower": 0,
-   "upper": 5,
-   "fromTxt": "SFC",
-   "toTxt": "492FT AGL",
-   "text": "TEMPO DANGER AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n363910N1272105E-363909N1272110E-363902N1272111E-363904N1272103E-36391\r\n0N1272105E\r\n\r\nRMK:THIS AREA IS ESTABLISHED FOR DRONE FLIGHT",
-   "center": [
-    36.651736,
-    127.352014
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       127.351389,
-       36.652778
-      ],
-      [
-       127.352778,
-       36.6525
-      ],
-      [
-       127.353056,
-       36.650556
-      ],
-      [
-       127.350833,
-       36.651111
-      ],
-      [
-       127.351389,
-       36.652778
-      ]
-     ]
-    ]
-   }
-  },
   {
    "no": "E4052/26",
    "kind": "R",
@@ -6463,57 +6412,6 @@
       [
        127.234722,
        36.345442
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E4546/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-09-23T06:00:00+00:00",
-   "end": "2026-09-27T10:00:00+00:00",
-   "endEst": false,
-   "schedule": "23 0600-0900, 27 0600-1000",
-   "lower": 0,
-   "upper": 3,
-   "fromTxt": "SFC",
-   "toTxt": "300FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\nAREA BOUNDED BY THE FOLLOWING\r\n373000N1245000E-372500N1245000E-372500N1244300E-373000N1244300E-\r\n373000N1245000E",
-   "center": [
-    37.466667,
-    124.786667
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       124.833333,
-       37.5
-      ],
-      [
-       124.833333,
-       37.416667
-      ],
-      [
-       124.716667,
-       37.416667
-      ],
-      [
-       124.716667,
-       37.5
-      ],
-      [
-       124.833333,
-       37.5
       ]
      ]
     ]
