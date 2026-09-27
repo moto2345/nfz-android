@@ -118,8 +118,23 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        // 1) 웹 화면에 열린 창(날씨·앱 정보·안내 등)이 있으면 그것부터 닫기
+        // 2) 이전 페이지가 있으면 뒤로
+        // 3) 3초 안에 한 번 더 누르면 종료
+        if (isHome(Uri.parse(currentUrl))) {
+            web.evaluateJavascript("(window.nfzBack && window.nfzBack()) ? '1' : '0'", v -> {
+                if (!"\"1\"".equals(v)) backOrExit();
+            });
+        } else backOrExit();
+    }
+
+    private long lastBackAt = 0;
+    private void backOrExit() {
+        if (web.canGoBack()) { web.goBack(); return; }
+        long now = System.currentTimeMillis();
+        if (now - lastBackAt < 3000) { finish(); return; }
+        lastBackAt = now;
+        toast("뒤로 버튼을 한 번 더 누르면 앱이 종료돼요");
     }
 
     @Override
