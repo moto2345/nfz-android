@@ -462,6 +462,20 @@ public class MainActivity extends Activity {
                     + ",\"spdAcc\":" + (!Double.isNaN(spdAcc) && System.currentTimeMillis() - spdAccAt < 5000 ? String.format(Locale.US, "%.2f", spdAcc) : "null") + "}";
         }
 
+        // 위치 권한·위치 서비스 상태 (웹 화면에선 앱 권한을 알 수 없어서 앱이 알려 줌)
+        // {"fine": 정확한 위치 허용, "coarse": 대략적 위치 허용, "gps": 폰 위치 서비스(GPS) 켜짐}
+        @JavascriptInterface
+        public String locPerm() {
+            boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean gps = false;
+            try {
+                LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                gps = lm != null && lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+            } catch (Exception ignored) {}
+            return "{\"fine\":" + fine + ",\"coarse\":" + coarse + ",\"gps\":" + gps + "}";
+        }
+
         @JavascriptInterface
         public String version() {
             return appVersion();
