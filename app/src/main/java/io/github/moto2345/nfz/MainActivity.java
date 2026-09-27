@@ -81,6 +81,9 @@ public class MainActivity extends Activity {
     private final ExecutorService altExec = Executors.newSingleThreadExecutor();
     private final AtomicBoolean altBusy = new AtomicBoolean(false);
     private volatile double geoidM = Double.NaN;
+    // 속도 오차(m/s) — 폰 GPS가 알려 주는 속도 신뢰도 (안드로이드 8+)
+    private volatile double spdAcc = Double.NaN;
+    private volatile long spdAccAt = 0;
     private volatile long geoidAt = 0;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -309,7 +312,13 @@ public class MainActivity extends Activity {
             public void onStopped() { satUsed = -1; satSeen = -1; }
         };
         if (gpsListener == null) gpsListener = new LocationListener() { // GPS 칩을 켜 두기 위한 빈 수신기
-            @Override public void onLocationChanged(Location location) { updateGeoid(location); }
+            @Override public void onLocationChanged(Location location) {
+                updateGeoid(location);
+                if (Build.VERSION.SDK_INT >= 26 && location != null && location.hasSpeedAccuracy()) {
+                    spdAcc = location.getSpeedAccuracyMetersPerSecond();
+                    spdAccAt = System.currentTimeMillis();
+                }
+            }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
             @Override public void onProviderEnabled(String provider) {}
             @Override public void onProviderDisabled(String provider) { satUsed = -1; satSeen = -1; }
@@ -434,7 +443,8 @@ public class MainActivity extends Activity {
             boolean pOk = !Double.isNaN(p) && System.currentTimeMillis() - baroAt < 5000;
             return "{\"used\":" + satUsed + ",\"seen\":" + satSeen
                     + ",\"hpa\":" + (pOk ? String.format(Locale.US, "%.2f", p) : "null")
-                    + ",\"geoid\":" + (Double.isNaN(g) ? "null" : String.format(Locale.US, "%.1f", g)) + "}";
+                    + ",\"geoid\":" + (Double.isNaN(g) ? "null" : String.format(Locale.US, "%.1f", g))
+                    + ",\"spdAcc\":" + (!Double.isNaN(spdAcc) && System.currentTimeMillis() - spdAccAt < 5000 ? String.format(Locale.US, "%.2f", spdAcc) : "null") + "}";
         }
 
         @JavascriptInterface
