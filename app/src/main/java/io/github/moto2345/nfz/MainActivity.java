@@ -461,31 +461,31 @@ public class MainActivity extends Activity {
                 // GPS가 잡히는 동안에는 덜 정확한 통신망 위치로 흔들리지 않게 무시
                 if (!LocationManager.GPS_PROVIDER.equals(l.getProvider()) && lastNative != null
                         && LocationManager.GPS_PROVIDER.equals(lastNative.getProvider())
-                        && ageMs(lastNative) < 5000) return;
+                        && ageMs(lastNative) < 10000) return;
+                // 같은 위치가 두 번 오면 무시 (화면 깜빡임 방지)
+                if (lastNative != null && l.getElapsedRealtimeNanos() == lastNative.getElapsedRealtimeNanos()) return;
                 lastNative = l;
                 sendNative(l);
             }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
-            @Override public void onProviderEnabled(String provider) { restartNative(); } // 위치를 켜면 바로 다시 받기
-            @Override public void onProviderDisabled(String provider) { restartNative(); }
+            // 주의: 옛 안드로이드는 꺼진 수신원을 등록하는 순간 onProviderDisabled를 바로 부름 →
+            // 여기서 다시 등록하면 끝없이 켜졌다 꺼졌다 반복(위치 아이콘 깜빡임). 등록은 유지되고 켜지면 저절로 다시 오므로 아무것도 안 함
+            @Override public void onProviderEnabled(String provider) {}
+            @Override public void onProviderDisabled(String provider) {}
         };
         int n = 0;
-        for (String p : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER}) {
+        for (String p : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER}) {
             if (!all.contains(p)) continue;
             try {
+                boolean on = locationManager.isProviderEnabled(p);
+                if (!on && LocationManager.NETWORK_PROVIDER.equals(p)) continue; // 꺼진 통신망 위치는 아예 등록 안 함
                 locationManager.requestLocationUpdates(p, 1000, 0, nativeListener, Looper.getMainLooper());
-                if (!LocationManager.PASSIVE_PROVIDER.equals(p) && locationManager.isProviderEnabled(p)) n++;
+                if (on) n++;
             } catch (Exception ignored) {}
         }
         nativeRunning = true;
         if (best != null) { lastNative = best; sendNative(best); }
         if (n == 0) sendNativeErr(2, all.contains(LocationManager.GPS_PROVIDER) ? "off" : "nogps");
-    }
-
-    private void restartNative() {
-        if (!nativeWanted) return;
-        stopNative();
-        startNative();
     }
 
     private void stopNative() {
