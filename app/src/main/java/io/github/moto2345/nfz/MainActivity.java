@@ -157,7 +157,17 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); if (gnssWanted) startGnss(); if (nativeWanted) startNative(); }
+    protected void onResume() {
+        super.onResume();
+        web.onResume();
+        if (gnssWanted) startGnss();
+        if (nativeWanted) startNative();
+        // 돌아왔을 때 화면 일부(결과창 등)가 하얗게 남는 경우가 있어 다시 그리게 함
+        web.postDelayed(() -> {
+            web.invalidate();
+            if (fromHome()) web.evaluateJavascript("window.nfzResume&&window.nfzResume()", null);
+        }, 250);
+    }
 
     @Override
     protected void onPause() { stopGnss(); stopNative(); web.onPause(); super.onPause(); } // 화면을 떠나면 배터리 절약
