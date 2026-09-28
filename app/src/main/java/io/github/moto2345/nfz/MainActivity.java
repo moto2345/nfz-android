@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
@@ -38,6 +39,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -86,6 +88,11 @@ public class MainActivity extends Activity {
     private volatile long spdAccAt = 0;
     private volatile long geoidAt = 0;
 
+    // 앱이 직접 받는 위치 — 옛 기종·차량용 기기처럼 웹 화면의 위치 기능이 안 될 때 대신 씀
+    private LocationListener nativeListener;
+    private boolean nativeWanted = false, nativeRunning = false, pendingNative = false, askingLoc = false;
+    private Location lastNative;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,7 +114,19 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new Chrome());
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl(HOME_URL);
+        else {
+            web.loadUrl(HOME_URL);
+            // 처음 켤 때 위치 권한을 미리 물음 (웹 화면이 묻지 못하는 옛 기기에서도 권한 창이 뜨게)
+            if (!hasLocationPermission()) askLocation();
+        }
+    }
+
+    private void askLocation() {
+        if (askingLoc) return;
+        askingLoc = true;
+        requestPermissions(new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
     }
 
     @Override
@@ -138,10 +157,10 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); if (gnssWanted) startGnss(); }
+    protected void onResume() { super.onResume(); web.onResume(); if (gnssWanted) startGnss(); if (nativeWanted) startNative(); }
 
     @Override
-    protected void onPause() { stopGnss(); web.onPause(); super.onPause(); } // 화면을 떠나면 배터리 절약
+    protected void onPause() { stopGnss(); stopNative(); web.onPause(); super.onPause(); } // 화면을 떠나면 배터리 절약
 
     private String appVersion() {
         try {
@@ -225,9 +244,7 @@ public class MainActivity extends Activity {
             } else {
                 geoOrigin = origin;
                 geoCallback = callback;
-                requestPermissions(new String[]{
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+                askLocation(); // 이미 묻는 중이면 그 답을 같이 씀
             }
         }
 
@@ -257,10 +274,18 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == REQ_LOCATION && geoCallback != null) {
-            geoCallback.invoke(geoOrigin, hasLocationPermission(), false);
-            if (!hasLocationPermission()) toast("위치 권한이 없으면 내 위치를 확인할 수 없습니다.");
-            geoCallback = null;
+        if (requestCode == REQ_LOCATION) {
+            askingLoc = false;
+            boolean ok = hasLocationPermission();
+            if (geoCallback != null) {
+                geoCallback.invoke(geoOrigin, ok, false);
+                geoCallback = null;
+            }
+            if (pendingNative) {
+                pendingNative = false;
+                if (ok) startNative(); else sendNativeErr(1, "perm");
+            }
+            if (!ok) toast("위치 권한이 없으면 내 위치를 확인할 수 없습니다.");
         } else if (requestCode == REQ_STORAGE && pendingSave != null) {
             String[] p = pendingSave;
             pendingSave = null;
@@ -410,6 +435,91 @@ public class MainActivity extends Activity {
         stopBaro();
     }
 
+    /* ───────── 앱이 직접 받는 위치 (GPS·통신망) → window.nfzNativeLoc ───────── */
+    private void startNative() {
+        if (!hasLocationPermission()) { pendingNative = true; askLocation(); return; }
+        if (locationManager == null) locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (locationManager == null) { sendNativeErr(2, "none"); return; }
+        if (nativeRunning) { // 이미 켜져 있으면 마지막 위치를 바로 한 번 더 알려 줌
+            if (lastNative != null) sendNative(lastNative);
+            return;
+        }
+        List<String> all;
+        try { all = locationManager.getAllProviders(); } catch (Exception e) { all = null; }
+        if (all == null || all.isEmpty()) { sendNativeErr(2, "none"); return; }
+        // 기다리는 동안 보여 줄 마지막으로 알던 위치 (가장 최근 것)
+        Location best = null;
+        for (String p : all) {
+            try {
+                Location l = locationManager.getLastKnownLocation(p);
+                if (l != null && (best == null || l.getElapsedRealtimeNanos() > best.getElapsedRealtimeNanos())) best = l;
+            } catch (Exception ignored) {}
+        }
+        if (nativeListener == null) nativeListener = new LocationListener() {
+            @Override public void onLocationChanged(Location l) {
+                if (l == null) return;
+                // GPS가 잡히는 동안에는 덜 정확한 통신망 위치로 흔들리지 않게 무시
+                if (!LocationManager.GPS_PROVIDER.equals(l.getProvider()) && lastNative != null
+                        && LocationManager.GPS_PROVIDER.equals(lastNative.getProvider())
+                        && ageMs(lastNative) < 5000) return;
+                lastNative = l;
+                sendNative(l);
+            }
+            @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+            @Override public void onProviderEnabled(String provider) { restartNative(); } // 위치를 켜면 바로 다시 받기
+            @Override public void onProviderDisabled(String provider) { restartNative(); }
+        };
+        int n = 0;
+        for (String p : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER}) {
+            if (!all.contains(p)) continue;
+            try {
+                locationManager.requestLocationUpdates(p, 1000, 0, nativeListener, Looper.getMainLooper());
+                if (!LocationManager.PASSIVE_PROVIDER.equals(p) && locationManager.isProviderEnabled(p)) n++;
+            } catch (Exception ignored) {}
+        }
+        nativeRunning = true;
+        if (best != null) { lastNative = best; sendNative(best); }
+        if (n == 0) sendNativeErr(2, all.contains(LocationManager.GPS_PROVIDER) ? "off" : "nogps");
+    }
+
+    private void restartNative() {
+        if (!nativeWanted) return;
+        stopNative();
+        startNative();
+    }
+
+    private void stopNative() {
+        if (!nativeRunning || locationManager == null) return;
+        try { locationManager.removeUpdates(nativeListener); } catch (Exception ignored) {}
+        nativeRunning = false;
+    }
+
+    private static long ageMs(Location l) {
+        return Math.max(0, (SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos()) / 1000000L);
+    }
+
+    private void sendNative(Location l) {
+        if (!fromHome()) return;
+        long age = ageMs(l);
+        String js = "window.nfzNativeLoc&&window.nfzNativeLoc({"
+                + String.format(Locale.US, "\"lat\":%.7f,\"lon\":%.7f", l.getLatitude(), l.getLongitude())
+                + ",\"acc\":" + (l.hasAccuracy() ? String.format(Locale.US, "%.1f", l.getAccuracy()) : "null")
+                + ",\"alt\":" + (l.hasAltitude() ? String.format(Locale.US, "%.1f", l.getAltitude()) : "null")
+                + ",\"spd\":" + (l.hasSpeed() ? String.format(Locale.US, "%.2f", l.getSpeed()) : "null")
+                + ",\"hdg\":" + (l.hasBearing() ? String.format(Locale.US, "%.1f", l.getBearing()) : "null")
+                + ",\"age\":" + age
+                + ",\"t\":" + (System.currentTimeMillis() - age) // 기기 시계가 틀린 차량용 기기도 있어 받은 시점 기준으로
+                + ",\"prov\":\"" + (l.getProvider() == null ? "" : l.getProvider().replaceAll("[^a-z]", "")) + "\"})";
+        runOnUiThread(() -> web.evaluateJavascript(js, null));
+    }
+
+    private void sendNativeErr(int code, String why) {
+        runOnUiThread(() -> {
+            if (fromHome())
+                web.evaluateJavascript("window.nfzNativeErr&&window.nfzNativeErr(" + code + ",'" + why + "')", null);
+        });
+    }
+
     /* ───────── 웹앱에서 부르는 기능 (window.NFZApp) ───────── */
     private class Bridge {
         @JavascriptInterface
@@ -473,7 +583,28 @@ public class MainActivity extends Activity {
                 LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
                 gps = lm != null && lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
             } catch (Exception ignored) {}
-            return "{\"fine\":" + fine + ",\"coarse\":" + coarse + ",\"gps\":" + gps + "}";
+            boolean net = false, hasGps = true;
+            try {
+                LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                List<String> all = lm == null ? null : lm.getAllProviders();
+                hasGps = all != null && all.contains(LocationManager.GPS_PROVIDER);
+                net = all != null && all.contains(LocationManager.NETWORK_PROVIDER) && lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+            } catch (Exception ignored) {}
+            return "{\"fine\":" + fine + ",\"coarse\":" + coarse + ",\"gps\":" + gps
+                    + ",\"net\":" + net + ",\"hasGps\":" + hasGps + ",\"sdk\":" + Build.VERSION.SDK_INT + "}";
+        }
+
+        // 앱이 직접 위치 받기 시작/끝 — 결과는 window.nfzNativeLoc({lat,lon,acc,alt,spd,hdg,age,t,prov}),
+        // 실패는 window.nfzNativeErr(코드, 이유) (1=권한 없음, 2=위치 끔/GPS 없음)
+        @JavascriptInterface
+        public void locStart() {
+            if (!fromHome()) return;
+            runOnUiThread(() -> { nativeWanted = true; startNative(); });
+        }
+
+        @JavascriptInterface
+        public void locStop() {
+            runOnUiThread(() -> { nativeWanted = false; stopNative(); });
         }
 
         @JavascriptInterface
