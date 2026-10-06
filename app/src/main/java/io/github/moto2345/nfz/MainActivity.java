@@ -315,8 +315,8 @@ public class MainActivity extends Activity {
 
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 
-    // 위쪽 파란 막대(제목 + 닫기)가 달린 전체 화면 창
-    private Dialog webDialog(String title, WebView w) {
+    // 위쪽 파란 막대(제목 + 버튼들 + 닫기)가 달린 전체 화면 창. extra: {글자, 동작} 쌍
+    private Dialog webDialog(String title, WebView w, Object... extra) {
         Dialog d = new Dialog(this, android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -324,19 +324,15 @@ public class MainActivity extends Activity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setBackgroundColor(0xFF1565C0);
-        bar.setPadding(dp(14), dp(8), dp(6), dp(8));
+        bar.setPadding(dp(12), dp(6), dp(4), dp(6));
         TextView t = new TextView(this);
         t.setText(title);
         t.setTextColor(0xFFFFFFFF);
-        t.setTextSize(15);
+        t.setTextSize(14);
+        t.setSingleLine(true);
         bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView x = new TextView(this);
-        x.setText("닫기 ✕");
-        x.setTextColor(0xFFFFFFFF);
-        x.setTextSize(15);
-        x.setPadding(dp(12), dp(6), dp(12), dp(6));
-        x.setOnClickListener(v -> d.dismiss());
-        bar.addView(x, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        for (int i = 0; i + 1 < extra.length; i += 2) bar.addView(barButton((String) extra[i], (Runnable) extra[i + 1]), wrap());
+        bar.addView(barButton("닫기 ✕", d::dismiss), wrap());
         root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(w, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         d.setContentView(root);
@@ -347,8 +343,25 @@ public class MainActivity extends Activity {
             }
             return code == KeyEvent.KEYCODE_BACK;
         });
-        d.setOnDismissListener(dlg -> { try { w.destroy(); } catch (Exception ignored) {} });
+        d.setOnDismissListener(dlg -> {
+            try { android.webkit.CookieManager.getInstance().flush(); } catch (Exception ignored) {} // 원스톱 로그인 유지
+            try { w.destroy(); } catch (Exception ignored) {}
+        });
         return d;
+    }
+
+    private LinearLayout.LayoutParams wrap() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private TextView barButton(String label, Runnable r) {
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextColor(0xFFFFFFFF);
+        b.setTextSize(14);
+        b.setPadding(dp(9), dp(7), dp(9), dp(7));
+        b.setOnClickListener(v -> r.run());
+        return b;
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -361,61 +374,122 @@ public class MainActivity extends Activity {
         return w;
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    // 지금 보이는 화면을 안드로이드 인쇄(→ 'PDF로 저장' 선택 가능)로 보냄
+    private void printWeb(WebView w, String name) {
+        runOnUiThread(() -> {
+            try {
+                android.print.PrintManager pm = (android.print.PrintManager) getSystemService(PRINT_SERVICE);
+                String job = name + "_" + new java.text.SimpleDateFormat("yyyyMMdd_HHmm", Locale.KOREA).format(new java.util.Date());
+                pm.print(job, w.createPrintDocumentAdapter(job), null);
+            } catch (Exception e) {
+                toast("인쇄를 열 수 없습니다: " + e.getMessage());
+            }
+        });
+    }
+
+    // 원스톱 페이지 안의 window.print()(공식 결과 문서 인쇄 등)를 안드로이드 인쇄로 연결 — 인쇄 기능만 있는 작은 연결
+    private class PrintBridge {
+        private final WebView w; private final String name;
+        PrintBridge(WebView w, String name) { this.w = w; this.name = name; }
+        @JavascriptInterface public void print() { printWeb(w, name); }
+    }
+
+    // 원스톱 창·팝업 공통: 원스톱 주소는 안에서, 다른 사이트는 바깥 창으로, 팝업은 새 창으로, 파일 받기 지원
+    @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
+    private void setupOnestopWeb(final WebView w, final Dialog d, final String printName, final double lat, final double lon, final boolean main) {
+        WebSettings s = w.getSettings();
+        s.setGeolocationEnabled(true);
+        s.setSupportMultipleWindows(true);
+        s.setJavaScriptCanOpenWindowsAutomatically(true);
+        s.setLoadWithOverviewMode(true);
+        s.setUseWideViewPort(true);
+        s.setBuiltInZoomControls(true);
+        s.setDisplayZoomControls(false);
+        try { android.webkit.CookieManager.getInstance().setAcceptCookie(true); } catch (Exception ignored) {}
+        w.addJavascriptInterface(new PrintBridge(w, printName), "HakoPrint");
+        w.setDownloadListener((url, ua, cd, mime, len) -> {
+            try {
+                android.app.DownloadManager.Request rq = new android.app.DownloadManager.Request(Uri.parse(url));
+                String cookie = android.webkit.CookieManager.getInstance().getCookie(url);
+                if (cookie != null) rq.addRequestHeader("Cookie", cookie);
+                rq.addRequestHeader("User-Agent", ua);
+                String fn = android.webkit.URLUtil.guessFileName(url, cd, mime);
+                rq.setTitle(fn);
+                rq.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                rq.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fn);
+                ((android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(rq);
+                toast("다운로드 폴더에 받는 중: " + fn);
+            } catch (Exception e) {
+                toast("파일을 받을 수 없어요. 위쪽 🖨 PDF 버튼으로 저장해 보세요.");
+            }
+        });
+        w.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                Uri u = req.getUrl();
+                String sc = u.getScheme() == null ? "" : u.getScheme();
+                if (isOnestop(u)) return false;
+                if ("tel".equals(sc)) { openOutside(u); return true; }
+                if ("http".equals(sc) || "https".equals(sc)) {
+                    if (main && req.isForMainFrame() && req.hasGesture()) { openOutside(u); return true; } // 항공고시보 등 다른 사이트는 바깥 창으로
+                    return false;
+                }
+                return true;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String u) {
+                if (u == null || !isOnestop(Uri.parse(u))) return;
+                view.evaluateJavascript("window.print=function(){try{HakoPrint.print()}catch(e){}};", null);
+                if (main && onestopReturn && !u.contains("/member/login")) { // 로그인 끝 → 보던 지점으로 돌아가기
+                    onestopReturn = false;
+                    view.loadUrl(ONESTOP_MAP);
+                    return;
+                }
+                if (u.contains("flightArea_chk")) view.evaluateJavascript(onestopScript(main ? lat : Double.NaN, main ? lon : Double.NaN), null);
+            }
+        });
+        w.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback cb) {
+                cb.invoke(origin, hasLocationPermission(), false); // 원스톱의 '내 위치' 버튼
+            }
+
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean userGesture, Message resultMsg) {
+                // 로그인 직후 저절로 뜨는 공지 팝업들은 열지 않음 (누르지 않았는데 뜨는 창 · 사전확인/결과 화면에서 뜨는 창은 허용)
+                String from = view.getUrl() == null ? "" : view.getUrl();
+                if (!userGesture && !from.contains("inadvance") && !from.contains("flightArea") && !from.contains("ClipReport")) return false;
+                final WebView child = popupWebView();
+                final Dialog[] pd = new Dialog[1];
+                pd[0] = webDialog("드론원스톱", child, "🖨 PDF", (Runnable) () -> printWeb(child, "원스톱"));
+                setupOnestopWeb(child, pd[0], "원스톱", Double.NaN, Double.NaN, false);
+                WebView.WebViewTransport tr = (WebView.WebViewTransport) resultMsg.obj;
+                tr.setWebView(child);
+                resultMsg.sendToTarget();
+                pd[0].show();
+                return true;
+            }
+
+            @Override
+            public void onCloseWindow(WebView window) { d.dismiss(); } // 페이지의 '닫기' 버튼 · 팝업 닫기
+        });
+    }
+
+    private static final String ONESTOP_MAP = "https://" + ONESTOP_HOST + "/common/flightArea_chk";
+    private static final String ONESTOP_LOGIN = "https://" + ONESTOP_HOST + "/member/login/login";
+    private boolean onestopReturn = false;
+
     private void openOnestop(final String url, final double lat, final double lon) {
         runOnUiThread(() -> {
             if (onestopDialog != null) { try { onestopDialog.dismiss(); } catch (Exception ignored) {} }
+            onestopReturn = false;
             final WebView w = popupWebView();
-            WebSettings s = w.getSettings();
-            s.setGeolocationEnabled(true);
-            s.setSupportMultipleWindows(true);          // 주소검색 팝업
-            s.setJavaScriptCanOpenWindowsAutomatically(true);
-            final Dialog d = webDialog("🛂 드론원스톱 · 비행가능지역 확인", w);
+            final Dialog d = webDialog("🛂 원스톱 비행가능지역", w,
+                    "로그인", (Runnable) () -> { onestopReturn = true; w.loadUrl(ONESTOP_LOGIN); toast("로그인하면 보던 지점으로 돌아와요"); },
+                    "🖨 PDF", (Runnable) () -> printWeb(w, "원스톱_비행가능지역"));
             onestopDialog = d;
-            w.setWebViewClient(new WebViewClient() {
-                @Override
-                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                    Uri u = req.getUrl();
-                    String sc = u.getScheme() == null ? "" : u.getScheme();
-                    if (isOnestop(u)) return false;
-                    if ("tel".equals(sc)) { openOutside(u); return true; }
-                    if ("http".equals(sc) || "https".equals(sc)) {
-                        if (req.isForMainFrame() && req.hasGesture()) { openOutside(u); return true; } // 항공고시보 등 다른 사이트는 바깥 창으로
-                        return false;
-                    }
-                    return true;
-                }
-
-                @Override
-                public void onPageFinished(WebView view, String u) {
-                    if (u != null && u.contains("flightArea_chk")) view.evaluateJavascript(onestopScript(lat, lon), null);
-                }
-            });
-            w.setWebChromeClient(new WebChromeClient() {
-                @Override
-                public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback cb) {
-                    cb.invoke(origin, hasLocationPermission(), false); // 원스톱의 '내 위치' 버튼
-                }
-
-                @Override
-                public boolean onCreateWindow(WebView view, boolean isDialog, boolean userGesture, Message resultMsg) {
-                    final WebView child = popupWebView();
-                    final Dialog pd = webDialog("주소 검색", child);
-                    child.setWebViewClient(new WebViewClient());
-                    child.setWebChromeClient(new WebChromeClient() {
-                        @Override
-                        public void onCloseWindow(WebView window) { pd.dismiss(); }
-                    });
-                    WebView.WebViewTransport tr = (WebView.WebViewTransport) resultMsg.obj;
-                    tr.setWebView(child);
-                    resultMsg.sendToTarget();
-                    pd.show();
-                    return true;
-                }
-
-                @Override
-                public void onCloseWindow(WebView window) { d.dismiss(); } // 페이지의 '닫기' 버튼
-            });
+            setupOnestopWeb(w, d, "원스톱_비행가능지역", lat, lon, true);
             w.loadUrl(url);
             d.show();
         });
