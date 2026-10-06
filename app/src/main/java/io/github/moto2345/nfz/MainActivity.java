@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.MediaStore;
@@ -190,14 +191,7 @@ public class MainActivity extends Activity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
             if (isHome(uri)) return false; // 앱 페이지만 앱 안에서, 같은 주소의 다른 사이트는 밖에서
-            try {
-                Intent i = "tel".equals(uri.getScheme())
-                        ? new Intent(Intent.ACTION_DIAL, uri)
-                        : new Intent(Intent.ACTION_VIEW, uri);
-                startActivity(i);
-            } catch (ActivityNotFoundException e) {
-                toast("열 수 있는 앱이 없습니다.");
-            }
+            openOutside(uri);
             return true;
         }
 
@@ -243,6 +237,29 @@ public class MainActivity extends Activity {
                 + "style='margin-top:16px;padding:12px 24px;border:0;border-radius:10px;background:#1565c0;color:#fff;font-size:16px'>다시 시도</button>"
                 + "</body></html>";
         view.loadDataWithBaseURL(HOME_URL, html, "text/html", "UTF-8", null);
+    }
+
+    /* 바깥 링크: 웹 주소는 '앱 위에 뜨는 브라우저 창'(Custom Tab)으로 — 닫으면 앱이 보던 화면 그대로.
+       원스톱 주소 검색 팝업 등도 브라우저 기능 그대로 동작. 전화번호는 전화 앱으로. */
+    private void openOutside(Uri uri) {
+        try {
+            String sc = uri.getScheme() == null ? "" : uri.getScheme();
+            Intent i;
+            if ("tel".equals(sc)) i = new Intent(Intent.ACTION_DIAL, uri);
+            else {
+                i = new Intent(Intent.ACTION_VIEW, uri);
+                if ("https".equals(sc) || "http".equals(sc)) {
+                    Bundle extras = new Bundle();
+                    extras.putBinder("android.support.customtabs.extra.SESSION", (IBinder) null); // 이 값이 있으면 브라우저가 Custom Tab으로 염
+                    i.putExtras(extras);
+                    i.putExtra("android.support.customtabs.extra.TOOLBAR_COLOR", 0xFF1565C0);
+                    i.putExtra("android.support.customtabs.extra.TITLE_VISIBILITY", 1);
+                }
+            }
+            startActivity(i);
+        } catch (ActivityNotFoundException e) {
+            toast("열 수 있는 앱이 없습니다.");
+        }
     }
 
     /* ───────── 위치 권한 · 파일 선택 ───────── */
