@@ -3,6 +3,7 @@ package io.github.moto2345.nfz;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -23,6 +24,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Message;
 import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.webkit.GeolocationPermissions;
@@ -34,6 +36,11 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -242,6 +249,7 @@ public class MainActivity extends Activity {
     /* 바깥 링크: 웹 주소는 '앱 위에 뜨는 브라우저 창'(Custom Tab)으로 — 닫으면 앱이 보던 화면 그대로.
        원스톱 주소 검색 팝업 등도 브라우저 기능 그대로 동작. 전화번호는 전화 앱으로. */
     private void openOutside(Uri uri) {
+        if (isOnestop(uri)) { openOnestop(uri.toString(), Double.NaN, Double.NaN); return; } // 원스톱은 앱 안 전용 창으로
         try {
             String sc = uri.getScheme() == null ? "" : uri.getScheme();
             Intent i;
@@ -260,6 +268,157 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException e) {
             toast("열 수 있는 앱이 없습니다.");
         }
+    }
+
+    /* ───────── 드론원스톱 '비행가능지역 확인' 전용 창 ─────────
+       공식 사이트를 앱 안의 창으로 열고, 휴대폰에서도 지도와 결과표가 한 화면에 보이게 배치만 바꿔 줌
+       (세로: 지도 위·결과 아래 / 가로: 지도 왼쪽·결과 오른쪽).
+       하코 NFZ에서 확인하던 지점 좌표를 넘기면 그 지점을 자동으로 선택해 결과가 바로 나옴.
+       주소검색(카카오 우편번호) 팝업은 팝업 창으로, 페이지의 '닫기'는 이 창을 닫음. */
+    private static final String ONESTOP_HOST = "drone.onestop.go.kr";
+    private Dialog onestopDialog;
+
+    private static boolean isOnestop(Uri u) {
+        String h = u == null ? null : u.getHost();
+        return h != null && (h.equals(ONESTOP_HOST) || h.endsWith("." + ONESTOP_HOST));
+    }
+
+    private static final String ONESTOP_CSS =
+            "body>br,body>font{display:none!important}body{margin:0!important}"
+            + ".home-flight{width:100%!important;margin:0!important;padding:0!important}"
+            + ".home-flight-map{height:46vh!important;min-height:220px;width:100%!important;margin:0!important;padding:0!important;box-sizing:border-box!important}"
+            + ".home-flight-map #map{height:100%!important;width:100%!important}"
+            + ".home-flight-table{width:100%!important;margin:4px 0 0!important;padding:0 4px!important;box-sizing:border-box!important;height:auto!important;float:none!important}"
+            + ".home-flight-table table.flight{width:100%!important;font-size:12.5px!important;line-height:1.35!important}"
+            + ".home-flight-table th,.home-flight-table td{padding:4px 7px!important;height:auto!important}"
+            + ".home-flight-table th{width:62px!important;font-size:12px!important;word-break:keep-all}"
+            + "@media (orientation:landscape){.home-flight{display:flex!important;align-items:flex-start!important;gap:6px!important;height:auto!important}"
+            + ".home-flight-map{flex:1 1 58%!important;width:auto!important;height:calc(100vh - 8px)!important;min-height:0}"
+            + ".home-flight-table{flex:0 0 41%!important;width:41%!important;max-height:calc(100vh - 8px)!important;overflow:auto!important;margin:0!important}}";
+
+    private String onestopScript(double lat, double lon) {
+        String pick = Double.isNaN(lat) || Double.isNaN(lon) ? "" :
+                String.format(Locale.US, "var lat=%.7f,lon=%.7f,n=0;(function go(){"
+                        + "if(typeof vmap!=='undefined'&&vmap&&typeof ol!=='undefined'&&typeof singleClickEvent==='function'&&typeof getPixelToBBOX==='function'){"
+                        + "setTimeout(function(){try{var c=ol.proj.transform([lon,lat],'EPSG:4326','EPSG:3857');"
+                        + "vmap.getView().setCenter(ol.proj.fromLonLat([lon,lat]));vmap.getView().setZoom(15);"
+                        + "setTimeout(function(){try{bbox=getPixelToBBOX();singleClickEvent(c,null);}catch(e){}},600);}catch(e){}},1200);"
+                        + "}else if(n++<60)setTimeout(go,250);})();", lat, lon);
+        return "(function(){if(document.getElementById('hako-fit'))return;var s=document.createElement('style');s.id='hako-fit';"
+                + "s.textContent=" + jsString(ONESTOP_CSS) + ";(document.head||document.documentElement).appendChild(s);"
+                + "setTimeout(function(){window.dispatchEvent(new Event('resize'));},300);" + pick + "})();";
+    }
+
+    private static String jsString(String v) {
+        return "'" + v.replace("\\", "\\\\").replace("'", "\\'") + "'";
+    }
+
+    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+
+    // 위쪽 파란 막대(제목 + 닫기)가 달린 전체 화면 창
+    private Dialog webDialog(String title, WebView w) {
+        Dialog d = new Dialog(this, android.R.style.Theme_DeviceDefault_Light_NoActionBar);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(0xFF1565C0);
+        bar.setPadding(dp(14), dp(8), dp(6), dp(8));
+        TextView t = new TextView(this);
+        t.setText(title);
+        t.setTextColor(0xFFFFFFFF);
+        t.setTextSize(15);
+        bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView x = new TextView(this);
+        x.setText("닫기 ✕");
+        x.setTextColor(0xFFFFFFFF);
+        x.setTextSize(15);
+        x.setPadding(dp(12), dp(6), dp(12), dp(6));
+        x.setOnClickListener(v -> d.dismiss());
+        bar.addView(x, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(w, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        d.setContentView(root);
+        d.setOnKeyListener((dlg, code, ev) -> {
+            if (code == KeyEvent.KEYCODE_BACK && ev.getAction() == KeyEvent.ACTION_UP) {
+                if (w.canGoBack()) w.goBack(); else d.dismiss();
+                return true;
+            }
+            return code == KeyEvent.KEYCODE_BACK;
+        });
+        d.setOnDismissListener(dlg -> { try { w.destroy(); } catch (Exception ignored) {} });
+        return d;
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private WebView popupWebView() {
+        WebView w = new WebView(this);
+        WebSettings s = w.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setTextZoom(100);
+        return w;
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private void openOnestop(final String url, final double lat, final double lon) {
+        runOnUiThread(() -> {
+            if (onestopDialog != null) { try { onestopDialog.dismiss(); } catch (Exception ignored) {} }
+            final WebView w = popupWebView();
+            WebSettings s = w.getSettings();
+            s.setGeolocationEnabled(true);
+            s.setSupportMultipleWindows(true);          // 주소검색 팝업
+            s.setJavaScriptCanOpenWindowsAutomatically(true);
+            final Dialog d = webDialog("🛂 드론원스톱 · 비행가능지역 확인", w);
+            onestopDialog = d;
+            w.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                    Uri u = req.getUrl();
+                    String sc = u.getScheme() == null ? "" : u.getScheme();
+                    if (isOnestop(u)) return false;
+                    if ("tel".equals(sc)) { openOutside(u); return true; }
+                    if ("http".equals(sc) || "https".equals(sc)) {
+                        if (req.isForMainFrame() && req.hasGesture()) { openOutside(u); return true; } // 항공고시보 등 다른 사이트는 바깥 창으로
+                        return false;
+                    }
+                    return true;
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String u) {
+                    if (u != null && u.contains("flightArea_chk")) view.evaluateJavascript(onestopScript(lat, lon), null);
+                }
+            });
+            w.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback cb) {
+                    cb.invoke(origin, hasLocationPermission(), false); // 원스톱의 '내 위치' 버튼
+                }
+
+                @Override
+                public boolean onCreateWindow(WebView view, boolean isDialog, boolean userGesture, Message resultMsg) {
+                    final WebView child = popupWebView();
+                    final Dialog pd = webDialog("주소 검색", child);
+                    child.setWebViewClient(new WebViewClient());
+                    child.setWebChromeClient(new WebChromeClient() {
+                        @Override
+                        public void onCloseWindow(WebView window) { pd.dismiss(); }
+                    });
+                    WebView.WebViewTransport tr = (WebView.WebViewTransport) resultMsg.obj;
+                    tr.setWebView(child);
+                    resultMsg.sendToTarget();
+                    pd.show();
+                    return true;
+                }
+
+                @Override
+                public void onCloseWindow(WebView window) { d.dismiss(); } // 페이지의 '닫기' 버튼
+            });
+            w.loadUrl(url);
+            d.show();
+        });
     }
 
     /* ───────── 위치 권한 · 파일 선택 ───────── */
@@ -632,6 +791,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void locStop() {
             runOnUiThread(() -> { nativeWanted = false; stopNative(); });
+        }
+
+        // 드론원스톱 비행가능지역 확인을 앱 안 창으로 열고 이 좌표를 자동 선택
+        @JavascriptInterface
+        public void openOnestop(double lat, double lon) {
+            if (!fromHome()) return;
+            MainActivity.this.openOnestop("https://" + ONESTOP_HOST + "/common/flightArea_chk", lat, lon);
         }
 
         @JavascriptInterface
