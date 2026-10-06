@@ -395,18 +395,18 @@ public class MainActivity extends Activity {
     /* 원스톱 페이지와의 작은 연결 (HakoPrint)
        - print(): 페이지 안의 window.print()(공식 결과 문서 인쇄 등)를 안드로이드 인쇄로
        - login(상태, 남은초): 페이지를 열 때마다 로그인했는지 알려 줌 (1 로그인 · 0 로그아웃 · -1 모름)
-       - touch(): 원스톱과 통신(지도 누르기 등)할 때마다 — 로그인 유지시간이 다시 120분으로 늘어남 */
+       ※ 남은 시간은 원스톱 사이트 위쪽 '로그인 유지시간'과 똑같이 셈 (페이지를 열 때마다 120분부터) */
     private class PrintBridge {
         private final WebView w; private final String name; private final boolean main;
         PrintBridge(WebView w, String name, boolean main) { this.w = w; this.name = name; this.main = main; }
         @JavascriptInterface public void print() { printWeb(w, name); }
         @JavascriptInterface public void login(final int state, final int secLeft) { runOnUiThread(() -> onestopLoginState(w, main, state, secLeft)); }
-        @JavascriptInterface public void touch() { runOnUiThread(() -> { if (onestopLogin == 1) { onestopUntil = SystemClock.elapsedRealtime() + ONESTOP_SESSION_MS; updateOnestopChip(); } }); }
     }
 
     /* ───────── 원스톱 로그인 상태 · 남은 시간 ─────────
-       원스톱은 마지막으로 통신한 뒤 120분이 지나면 로그아웃됨 (사이트 위쪽 '로그인 유지시간'과 같은 기준).
-       페이지를 열 때마다 로그인 여부를 확인하고, 통신할 때마다 120분으로 다시 맞춤. */
+       원스톱 사이트 위쪽 '로그인 유지시간'과 같은 기준: 페이지를 열 때마다 120분부터 다시 셈.
+       (지도 누르기 같은 통신으로 서버 쪽 시간이 늘어나는지는 확인되지 않아 세지 않음 — 표시가 실제보다 짧으면 짧았지 길지 않게)
+       페이지를 열 때마다 로그인 여부도 다시 확인해서, 이미 끊겼으면 바로 🔒로 바뀜. */
     private static final long ONESTOP_SESSION_MS = 120 * 60 * 1000L;
     private int onestopLogin = -1;     // 1 로그인 · 0 로그아웃 · -1 아직 모름
     private long onestopUntil = 0;     // 로그인이 끝나는 시각 (elapsedRealtime)
@@ -420,7 +420,7 @@ public class MainActivity extends Activity {
         }
     };
 
-    // 페이지마다 실행: 로그인 여부 + 사이트 시계(남은 초) 읽기, 통신할 때마다 touch()
+    // 페이지마다 실행: 로그인 여부 + 사이트 시계(남은 초) 읽기
     private static final String ONESTOP_LOGIN_JS = "(function(){try{"
             + "var s=-1,t=-1,u=document.querySelector('[name=APPLY_USER]');"
             + "if(document.getElementById('logoutCheck')||document.querySelector('a[href*=\"/member/login/logout\"]'))s=1;"
@@ -428,8 +428,6 @@ public class MainActivity extends Activity {
             + "else if(document.querySelector('a[href*=\"/member/login/login\"],form[action*=\"loginPost\"]'))s=0;"
             + "if(s===1&&document.getElementById('demo')&&typeof time==='number')t=time;"
             + "HakoPrint.login(s,t);"
-            + "if(!window.__hakoXhr){window.__hakoXhr=1;var o=XMLHttpRequest.prototype.send;"
-            + "XMLHttpRequest.prototype.send=function(){try{this.addEventListener('loadend',function(){try{HakoPrint.touch()}catch(e){}})}catch(e){}return o.apply(this,arguments)};}"
             + "}catch(e){}})();";
 
     private void onestopLoginState(WebView w, boolean main, int state, int secLeft) {
@@ -481,7 +479,7 @@ public class MainActivity extends Activity {
         long left = onestopLeftMs();
         if (onestopLogin == 1 && left > 0) {
             long sec = left / 1000;
-            toast(String.format(Locale.KOREA, "원스톱 로그인 중 · 남은 시간 %d분 %d초\n원스톱 화면을 열거나 지도를 누를 때마다 120분으로 다시 늘어나요", sec / 60, sec % 60));
+            toast(String.format(Locale.KOREA, "원스톱 로그인 중 · 남은 시간 %d분 %d초\n원스톱 사이트의 '로그인 유지시간'과 같아요 — 원스톱 화면을 새로 열 때마다 120분으로 다시 늘어나요", sec / 60, sec % 60));
             return;
         }
         onestopReturn = true;
