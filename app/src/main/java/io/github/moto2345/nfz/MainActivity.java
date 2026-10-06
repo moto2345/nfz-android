@@ -330,8 +330,12 @@ public class MainActivity extends Activity {
         t.setTextColor(0xFFFFFFFF);
         t.setTextSize(14);
         t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        for (int i = 0; i + 1 < extra.length; i += 2) bar.addView(barButton((String) extra[i], (Runnable) extra[i + 1]), wrap());
+        for (int i = 0; i < extra.length; i++) { // 미리 만든 View는 그대로, 아니면 {글자, 동작} 쌍
+            if (extra[i] instanceof android.view.View) { android.view.View v = (android.view.View) extra[i]; if (v.getLayoutParams() != null) bar.addView(v); else bar.addView(v, wrap()); }
+            else if (i + 1 < extra.length) { bar.addView(barButton((String) extra[i], (Runnable) extra[i + 1]), wrap()); i++; }
+        }
         bar.addView(barButton("닫기 ✕", d::dismiss), wrap());
         root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(w, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -345,6 +349,7 @@ public class MainActivity extends Activity {
         });
         d.setOnDismissListener(dlg -> {
             try { android.webkit.CookieManager.getInstance().flush(); } catch (Exception ignored) {} // 원스톱 로그인 유지
+            if (d == onestopDialog) { onestopChip = null; onestopTick.removeCallbacks(onestopTickRun); } // 남은 시간 시계 멈춤
             try { w.destroy(); } catch (Exception ignored) {}
         });
         return d;
@@ -387,11 +392,101 @@ public class MainActivity extends Activity {
         });
     }
 
-    // 원스톱 페이지 안의 window.print()(공식 결과 문서 인쇄 등)를 안드로이드 인쇄로 연결 — 인쇄 기능만 있는 작은 연결
+    /* 원스톱 페이지와의 작은 연결 (HakoPrint)
+       - print(): 페이지 안의 window.print()(공식 결과 문서 인쇄 등)를 안드로이드 인쇄로
+       - login(상태, 남은초): 페이지를 열 때마다 로그인했는지 알려 줌 (1 로그인 · 0 로그아웃 · -1 모름)
+       - touch(): 원스톱과 통신(지도 누르기 등)할 때마다 — 로그인 유지시간이 다시 120분으로 늘어남 */
     private class PrintBridge {
-        private final WebView w; private final String name;
-        PrintBridge(WebView w, String name) { this.w = w; this.name = name; }
+        private final WebView w; private final String name; private final boolean main;
+        PrintBridge(WebView w, String name, boolean main) { this.w = w; this.name = name; this.main = main; }
         @JavascriptInterface public void print() { printWeb(w, name); }
+        @JavascriptInterface public void login(final int state, final int secLeft) { runOnUiThread(() -> onestopLoginState(w, main, state, secLeft)); }
+        @JavascriptInterface public void touch() { runOnUiThread(() -> { if (onestopLogin == 1) { onestopUntil = SystemClock.elapsedRealtime() + ONESTOP_SESSION_MS; updateOnestopChip(); } }); }
+    }
+
+    /* ───────── 원스톱 로그인 상태 · 남은 시간 ─────────
+       원스톱은 마지막으로 통신한 뒤 120분이 지나면 로그아웃됨 (사이트 위쪽 '로그인 유지시간'과 같은 기준).
+       페이지를 열 때마다 로그인 여부를 확인하고, 통신할 때마다 120분으로 다시 맞춤. */
+    private static final long ONESTOP_SESSION_MS = 120 * 60 * 1000L;
+    private int onestopLogin = -1;     // 1 로그인 · 0 로그아웃 · -1 아직 모름
+    private long onestopUntil = 0;     // 로그인이 끝나는 시각 (elapsedRealtime)
+    private TextView onestopChip;
+    private final Handler onestopTick = new Handler(Looper.getMainLooper());
+    private final Runnable onestopTickRun = new Runnable() {
+        @Override public void run() {
+            if (onestopChip == null) return;
+            updateOnestopChip();
+            onestopTick.postDelayed(this, 1000);
+        }
+    };
+
+    // 페이지마다 실행: 로그인 여부 + 사이트 시계(남은 초) 읽기, 통신할 때마다 touch()
+    private static final String ONESTOP_LOGIN_JS = "(function(){try{"
+            + "var s=-1,t=-1,u=document.querySelector('[name=APPLY_USER]');"
+            + "if(document.getElementById('logoutCheck')||document.querySelector('a[href*=\"/member/login/logout\"]'))s=1;"
+            + "else if(u)s=u.value?1:0;"
+            + "else if(document.querySelector('a[href*=\"/member/login/login\"],form[action*=\"loginPost\"]'))s=0;"
+            + "if(s===1&&document.getElementById('demo')&&typeof time==='number')t=time;"
+            + "HakoPrint.login(s,t);"
+            + "if(!window.__hakoXhr){window.__hakoXhr=1;var o=XMLHttpRequest.prototype.send;"
+            + "XMLHttpRequest.prototype.send=function(){try{this.addEventListener('loadend',function(){try{HakoPrint.touch()}catch(e){}})}catch(e){}return o.apply(this,arguments)};}"
+            + "}catch(e){}})();";
+
+    private void onestopLoginState(WebView w, boolean main, int state, int secLeft) {
+        if (state == 1) {
+            onestopLogin = 1;
+            long ms = secLeft > 0 ? Math.min(secLeft * 1000L, ONESTOP_SESSION_MS) : ONESTOP_SESSION_MS; // 페이지를 막 열었으니 120분부터
+            onestopUntil = SystemClock.elapsedRealtime() + ms;
+            if (main && onestopReturn) { // 로그인 끝 → 보던 지점으로 돌아가기
+                onestopReturn = false;
+                toast("로그인됐어요 — 보던 지점으로 돌아가요");
+                w.loadUrl(ONESTOP_MAP);
+            }
+        } else if (state == 0) {
+            onestopLogin = 0;
+            onestopUntil = 0;
+        }
+        updateOnestopChip();
+    }
+
+    private long onestopLeftMs() {
+        return onestopLogin == 1 ? onestopUntil - SystemClock.elapsedRealtime() : 0;
+    }
+
+    private void updateOnestopChip() {
+        TextView c = onestopChip;
+        if (c == null) return;
+        long left = onestopLeftMs();
+        if (onestopLogin == 1 && left <= 0) { onestopLogin = 0; left = 0; }
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(dp(14));
+        String label; int fg = 0xFFFFFFFF;
+        if (onestopLogin == 1) {
+            long sec = left / 1000;
+            label = String.format(Locale.KOREA, "🔓 %d:%02d", sec / 60, sec % 60);
+            if (sec < 180) bg.setColor(0xFFC62828);            // 3분 미만: 빨강
+            else if (sec < 600) { bg.setColor(0xFFFFB300); fg = 0xFF212121; } // 10분 미만: 노랑
+            else bg.setColor(0xFF2E7D32);                       // 로그인 중: 초록
+        } else {
+            label = onestopLogin == 0 ? "🔒 로그인" : "로그인";
+            bg.setColor(0x33FFFFFF);
+            bg.setStroke(dp(1), 0x99FFFFFF);
+        }
+        if (!label.contentEquals(c.getText())) c.setText(label);
+        c.setTextColor(fg);
+        c.setBackground(bg);
+    }
+
+    private void onestopChipTap(WebView w) {
+        long left = onestopLeftMs();
+        if (onestopLogin == 1 && left > 0) {
+            long sec = left / 1000;
+            toast(String.format(Locale.KOREA, "원스톱 로그인 중 · 남은 시간 %d분 %d초\n원스톱 화면을 열거나 지도를 누를 때마다 120분으로 다시 늘어나요", sec / 60, sec % 60));
+            return;
+        }
+        onestopReturn = true;
+        w.loadUrl(ONESTOP_LOGIN);
+        toast("로그인하면 보던 지점으로 돌아와요");
     }
 
     // 원스톱 창·팝업 공통: 원스톱 주소는 안에서, 다른 사이트는 바깥 창으로, 팝업은 새 창으로, 파일 받기 지원
@@ -406,7 +501,7 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(true);
         s.setDisplayZoomControls(false);
         try { android.webkit.CookieManager.getInstance().setAcceptCookie(true); } catch (Exception ignored) {}
-        w.addJavascriptInterface(new PrintBridge(w, printName), "HakoPrint");
+        w.addJavascriptInterface(new PrintBridge(w, printName, main), "HakoPrint");
         w.setDownloadListener((url, ua, cd, mime, len) -> {
             try {
                 android.app.DownloadManager.Request rq = new android.app.DownloadManager.Request(Uri.parse(url));
@@ -441,11 +536,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String u) {
                 if (u == null || !isOnestop(Uri.parse(u))) return;
                 view.evaluateJavascript("window.print=function(){try{HakoPrint.print()}catch(e){}};", null);
-                if (main && onestopReturn && !u.contains("/member/login")) { // 로그인 끝 → 보던 지점으로 돌아가기
-                    onestopReturn = false;
-                    view.loadUrl(ONESTOP_MAP);
-                    return;
-                }
+                view.evaluateJavascript(ONESTOP_LOGIN_JS, null); // 로그인 상태 · 남은 시간 (로그인 직후면 보던 지점으로 돌아감)
                 if (u.contains("flightArea_chk")) view.evaluateJavascript(onestopScript(main ? lat : Double.NaN, main ? lon : Double.NaN), null);
             }
         });
@@ -485,10 +576,20 @@ public class MainActivity extends Activity {
             if (onestopDialog != null) { try { onestopDialog.dismiss(); } catch (Exception ignored) {} }
             onestopReturn = false;
             final WebView w = popupWebView();
+            final TextView chip = barButton("로그인", () -> onestopChipTap(w)); // 로그인 상태 · 남은 시간 (누르면 로그인)
+            LinearLayout.LayoutParams cl = wrap();
+            cl.setMargins(dp(4), 0, dp(2), 0);
+            chip.setLayoutParams(cl);
+            chip.setPadding(dp(10), dp(5), dp(10), dp(5));
+            chip.setTextSize(13);
             final Dialog d = webDialog("🛂 원스톱 비행가능지역", w,
-                    "로그인", (Runnable) () -> { onestopReturn = true; w.loadUrl(ONESTOP_LOGIN); toast("로그인하면 보던 지점으로 돌아와요"); },
+                    chip,
                     "🖨 PDF", (Runnable) () -> printWeb(w, "원스톱_비행가능지역"));
             onestopDialog = d;
+            onestopChip = chip;
+            updateOnestopChip();
+            onestopTick.removeCallbacks(onestopTickRun);
+            onestopTick.postDelayed(onestopTickRun, 1000);
             setupOnestopWeb(w, d, "원스톱_비행가능지역", lat, lon, true);
             w.loadUrl(url);
             d.show();
