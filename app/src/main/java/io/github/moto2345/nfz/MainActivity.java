@@ -513,21 +513,44 @@ public class MainActivity extends Activity {
                 ((android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(rq);
                 toast("다운로드 폴더에 받는 중: " + fn);
             } catch (Exception e) {
-                toast("파일을 받을 수 없어요. 위쪽 🖨 PDF 버튼으로 저장해 보세요.");
+                toast("파일을 받을 수 없어요.");
             }
         });
+        final AtomicBoolean left = new AtomicBoolean(false); // 이 창에서 바깥 브라우저로 이미 넘겼는지
         w.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri u = req.getUrl();
                 String sc = u.getScheme() == null ? "" : u.getScheme();
-                if (isOnestop(u)) return false;
+                if (isOnestop(u)) {
+                    if ("http".equals(sc)) { view.loadUrl(u.buildUpon().scheme("https").build().toString()); return true; } // 원스톱 http 주소는 https로
+                    return false;
+                }
                 if ("tel".equals(sc)) { openOutside(u); return true; }
                 if ("http".equals(sc) || "https".equals(sc)) {
-                    if (main && req.isForMainFrame() && req.hasGesture()) { openOutside(u); return true; } // 항공고시보 등 다른 사이트는 바깥 창으로
+                    if (!main && !isPostcode(u)) { leaveOutside(view, d, u, main, left); return true; } // 팝업으로 뜬 다른 사이트(항공고시보 등) → 바깥 브라우저로
+                    if ("http".equals(sc) && req.isForMainFrame()) { openOutside(u); return true; }   // 보안 연결이 아닌 사이트는 앱 안에서 못 열어서 바깥 브라우저로
+                    if (main && req.isForMainFrame() && req.hasGesture()) { openOutside(u); return true; } // 다른 사이트 링크는 바깥 창으로
                     return false;
                 }
                 return true;
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                // 팝업 첫 주소는 위 함수를 거치지 않는 경우가 있어 한 번 더 확인
+                Uri u = url == null ? null : Uri.parse(url);
+                if (!main && u != null && u.getScheme() != null && u.getScheme().startsWith("http") && !isOnestop(u) && !isPostcode(u)) {
+                    view.stopLoading();
+                    leaveOutside(view, d, u, main, left);
+                }
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
+                // 그래도 http 사이트가 막히면(ERR_CLEARTEXT_NOT_PERMITTED) 바깥 브라우저로 열고 빈 화면은 닫음
+                Uri u = req.getUrl();
+                if (req.isForMainFrame() && u != null && "http".equals(u.getScheme()) && !isOnestop(u)) leaveOutside(view, d, u, main, left);
             }
 
             @Override
@@ -551,7 +574,7 @@ public class MainActivity extends Activity {
                 if (!userGesture && !from.contains("inadvance") && !from.contains("flightArea") && !from.contains("ClipReport")) return false;
                 final WebView child = popupWebView();
                 final Dialog[] pd = new Dialog[1];
-                pd[0] = webDialog("드론원스톱", child, "🖨 PDF", (Runnable) () -> printWeb(child, "원스톱"));
+                pd[0] = webDialog("드론원스톱", child);
                 setupOnestopWeb(child, pd[0], "원스톱", Double.NaN, Double.NaN, false);
                 WebView.WebViewTransport tr = (WebView.WebViewTransport) resultMsg.obj;
                 tr.setWebView(child);
@@ -562,6 +585,22 @@ public class MainActivity extends Activity {
 
             @Override
             public void onCloseWindow(WebView window) { d.dismiss(); } // 페이지의 '닫기' 버튼 · 팝업 닫기
+        });
+    }
+
+    // 원스톱 주소검색(카카오 우편번호) 팝업은 원스톱 창과 주고받아야 해서 앱 안에서 열어 둠
+    private static boolean isPostcode(Uri u) {
+        String h = u == null ? null : u.getHost();
+        return h != null && (h.endsWith("daum.net") || h.endsWith("kakao.com") || h.endsWith("kakaocdn.net"));
+    }
+
+    // 다른 사이트를 바깥 브라우저로 넘기고: 팝업이면 빈 창을 닫고, 원스톱 창이면 원래 화면으로 되돌림
+    private void leaveOutside(WebView view, Dialog d, Uri u, boolean main, AtomicBoolean left) {
+        if (!left.compareAndSet(false, true)) return;
+        openOutside(u);
+        runOnUiThread(() -> {
+            if (!main) { try { d.dismiss(); } catch (Exception ignored) {} }
+            else { left.set(false); if (view.canGoBack()) view.goBack(); }
         });
     }
 
@@ -580,9 +619,7 @@ public class MainActivity extends Activity {
             chip.setLayoutParams(cl);
             chip.setPadding(dp(10), dp(5), dp(10), dp(5));
             chip.setTextSize(13);
-            final Dialog d = webDialog("🛂 원스톱 비행가능지역", w,
-                    chip,
-                    "🖨 PDF", (Runnable) () -> printWeb(w, "원스톱_비행가능지역"));
+            final Dialog d = webDialog("🛂 원스톱 비행가능지역", w, chip);
             onestopDialog = d;
             onestopChip = chip;
             updateOnestopChip();
