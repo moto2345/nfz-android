@@ -170,6 +170,10 @@ public class MainActivity extends Activity {
         web.onResume();
         if (gnssWanted) startGnss();
         if (nativeWanted) startNative();
+        if (apkPending != null) { // 설치 허용 설정에서 돌아옴
+            if (Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls()) launchInstaller(apkPending);
+            else { apkPending = null; toast("설치 허용이 꺼져 있어 설치하지 못했어요. 다시 📱 앱 설치를 눌러 주세요."); }
+        }
         // 돌아왔을 때 화면 일부(결과창 등)가 하얗게 남는 경우가 있어 다시 그리게 함
         web.postDelayed(() -> {
             web.invalidate();
@@ -197,6 +201,7 @@ public class MainActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
+            if (isApkUrl(uri)) { installApk(uri.toString()); return true; } // 📱 앱 설치: 앱이 직접 받아서 설치 화면까지
             if (isHome(uri)) return false; // 앱 페이지만 앱 안에서, 같은 주소의 다른 사이트는 밖에서
             openOutside(uri);
             return true;
@@ -215,6 +220,94 @@ public class MainActivity extends Activity {
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             if (request.isForMainFrame()) showOffline(view);
+        }
+    }
+
+    /* ───────── 📱 앱 설치(새 버전): 브라우저로 넘기지 않고 앱이 직접 받아서, 다 받으면 바로 설치 화면을 띄움 ─────────
+       (브라우저로 받으면 다운로드 알림만 남고 설치는 사용자가 따로 찾아 눌러야 했음) */
+    private static boolean isApkUrl(Uri u) {
+        String h = u.getHost() == null ? "" : u.getHost(), p = u.getPath() == null ? "" : u.getPath();
+        return "https".equals(u.getScheme()) && h.endsWith("github.com") && p.contains("/moto2345/nfz-android/") && p.endsWith(".apk");
+    }
+
+    private long apkDownloadId = -1;
+    private Uri apkPending;   // 다 받았는데 '설치 허용'을 기다리는 파일
+    private final Handler apkTick = new Handler(Looper.getMainLooper());
+
+    private void installApk(final String url) {
+        runOnUiThread(() -> {
+            if (apkDownloadId != -1) { toast("새 버전을 내려받는 중이에요. 다 받으면 설치 화면이 떠요"); return; }
+            try {
+                File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (dir != null) { // 예전에 받은 설치 파일 정리
+                    File[] old = dir.listFiles();
+                    if (old != null) for (File f : old) if (f.getName().endsWith(".apk")) f.delete();
+                }
+                android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                android.app.DownloadManager.Request rq = new android.app.DownloadManager.Request(Uri.parse(url));
+                rq.setTitle("하코 NFZ 새 버전");
+                rq.setDescription("다 받으면 설치 화면이 열려요");
+                rq.setMimeType("application/vnd.android.package-archive");
+                rq.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                rq.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "HACO-NFZ-" + System.currentTimeMillis() + ".apk");
+                apkDownloadId = dm.enqueue(rq);
+                toast("새 버전을 내려받는 중… 다 받으면 설치 화면이 떠요");
+                apkTick.removeCallbacks(apkPoll);
+                apkTick.postDelayed(apkPoll, 1000);
+            } catch (Exception e) {
+                apkDownloadId = -1;
+                openOutside(Uri.parse(url)); // 안 되면 예전처럼 브라우저로 받기
+            }
+        });
+    }
+
+    private final Runnable apkPoll = new Runnable() {
+        @Override public void run() {
+            if (apkDownloadId == -1) return;
+            android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            int st = -1;
+            android.database.Cursor c = null;
+            try {
+                c = dm.query(new android.app.DownloadManager.Query().setFilterById(apkDownloadId));
+                if (c != null && c.moveToFirst()) st = c.getInt(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS));
+            } catch (Exception ignored) {
+            } finally { if (c != null) c.close(); }
+            if (st == android.app.DownloadManager.STATUS_SUCCESSFUL) {
+                Uri u = dm.getUriForDownloadedFile(apkDownloadId);
+                apkDownloadId = -1;
+                startInstall(u);
+            } else if (st == android.app.DownloadManager.STATUS_FAILED || st == -1) {
+                apkDownloadId = -1;
+                toast("내려받기에 실패했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.");
+            } else {
+                apkTick.postDelayed(this, 1000);
+            }
+        }
+    };
+
+    private void startInstall(Uri u) {
+        if (u == null) { toast("받은 파일을 찾을 수 없어요. 다시 📱 앱 설치를 눌러 주세요."); return; }
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            // 처음 한 번: 이 앱에서 설치해도 되는지 허용 → 돌아오면(onResume) 바로 설치 화면
+            apkPending = u;
+            toast("설치하려면 '이 출처 허용'을 켠 뒤 뒤로 돌아오세요");
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+            } catch (Exception e) { launchInstaller(u); }
+            return;
+        }
+        launchInstaller(u);
+    }
+
+    private void launchInstaller(Uri u) {
+        apkPending = null;
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(u, "application/vnd.android.package-archive");
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception e) {
+            toast("설치 화면을 열 수 없어요. 알림창의 '하코 NFZ 새 버전'을 눌러 설치해 주세요.");
         }
     }
 
