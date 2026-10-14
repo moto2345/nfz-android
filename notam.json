@@ -1,9 +1,9 @@
 {
- "fetchedAt": "2026-10-14T08:04:35+09:00",
- "fetchedAtUTC": "2026-10-13T23:04:35+00:00",
+ "fetchedAt": "2026-10-14T10:49:24+09:00",
+ "fetchedAtUTC": "2026-10-14T01:49:24+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1278,
- "count": 165,
+ "totalFetched": 1280,
+ "count": 166,
  "items": [
   {
    "no": "D2725/26",
@@ -24908,6 +24908,57 @@
       [
        129.064444,
        37.656553
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "no": "D3189/26",
+   "kind": "D",
+   "kindName": "임시위험구역",
+   "series": "D",
+   "location": "RKRR",
+   "qcode": "QRDCA",
+   "qmean": "Danger area (specify) / Activated",
+   "category": "drone",
+   "start": "2026-10-17T00:00:00+00:00",
+   "end": "2026-11-08T09:00:00+00:00",
+   "endEst": false,
+   "schedule": "OCT 17-18 24-25 31 0000-0900, NOV 01 07-08 0000-0900",
+   "lower": 0,
+   "upper": 10,
+   "fromTxt": "SFC",
+   "toTxt": "1000FT AGL",
+   "text": "TEMPO DANGER AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n354353N1263122E-354645N1263417E-354405N1263527E-354134N1263357E-35435\r\n3N1263122E\r\nRMK:THIS AREA IS ESTABLISHED FOR DRONE FLIGHT",
+   "center": [
+    35.734514,
+    126.562708
+   ],
+   "radiusM": null,
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       126.522778,
+       35.731389
+      ],
+      [
+       126.571389,
+       35.779167
+      ],
+      [
+       126.590833,
+       35.734722
+      ],
+      [
+       126.565833,
+       35.692778
+      ],
+      [
+       126.522778,
+       35.731389
       ]
      ]
     ]
