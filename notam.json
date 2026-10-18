@@ -1,9 +1,9 @@
 {
- "fetchedAt": "2026-10-18T15:32:06+09:00",
- "fetchedAtUTC": "2026-10-18T06:32:06+00:00",
+ "fetchedAt": "2026-10-18T20:37:54+09:00",
+ "fetchedAtUTC": "2026-10-18T11:37:54+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1303,
- "count": 181,
+ "totalFetched": 1305,
+ "count": 178,
  "items": [
   {
    "no": "D2887/26",
@@ -9227,69 +9227,6 @@
    }
   },
   {
-   "no": "E4782/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-10-09T01:00:00+00:00",
-   "end": "2026-10-18T08:00:00+00:00",
-   "endEst": false,
-   "schedule": "09-11 17-18 0100-0800",
-   "lower": 0,
-   "upper": 40,
-   "fromTxt": "SFC",
-   "toTxt": "4000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n352153N1273118E-351740N1272640E-351046N1272842E-350618N1273711E-35041\r\n5N1273853E-350133N1274657E-350413N1274836E-352014N1274352E-352153N127\r\n3118E",
-   "center": [
-    35.196706,
-    127.626825
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       127.521667,
-       35.364722
-      ],
-      [
-       127.444444,
-       35.294444
-      ],
-      [
-       127.478333,
-       35.179444
-      ],
-      [
-       127.619722,
-       35.105
-      ],
-      [
-       127.7825,
-       35.025833
-      ],
-      [
-       127.81,
-       35.070278
-      ],
-      [
-       127.731111,
-       35.337222
-      ],
-      [
-       127.521667,
-       35.364722
-      ]
-     ]
-    ]
-   }
-  },
-  {
    "no": "D3052/26",
    "kind": "D",
    "kindName": "임시위험구역",
@@ -12008,57 +11945,6 @@
       [
        128.780556,
        36.828216
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E4709/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-10-12T23:00:00+00:00",
-   "end": "2026-10-18T09:00:00+00:00",
-   "endEst": false,
-   "schedule": "2300-0900",
-   "lower": 0,
-   "upper": 30,
-   "fromTxt": "SFC",
-   "toTxt": "3000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n342000N1243000E-342000N1254953E-334500N1254953E-334500N1243000E-34200\r\n0N1243000E",
-   "center": [
-    34.041667,
-    125.165694
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       124.5,
-       34.333333
-      ],
-      [
-       125.831389,
-       34.333333
-      ],
-      [
-       125.831389,
-       33.75
-      ],
-      [
-       124.5,
-       33.75
-      ],
-      [
-       124.5,
-       34.333333
       ]
      ]
     ]
@@ -16964,57 +16850,6 @@
       [
        128.0675,
        35.1718
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E4840/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-10-15T02:00:00+00:00",
-   "end": "2026-10-18T08:30:00+00:00",
-   "endEst": false,
-   "schedule": "15 0200-0500, 16 18 0100-0830",
-   "lower": 0,
-   "upper": 5,
-   "fromTxt": "SFC",
-   "toTxt": "500FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\n1NM EITHER SIDE OF LINE \r\n372824N1264420E-372849N1264346E-372818N1264336E-372807N1264434E-37280\r\n5N1264502E",
-   "center": [
-    37.473472,
-    126.734444
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       126.738889,
-       37.473333
-      ],
-      [
-       126.729444,
-       37.480278
-      ],
-      [
-       126.726667,
-       37.471667
-      ],
-      [
-       126.742778,
-       37.468611
-      ],
-      [
-       126.738889,
-       37.473333
       ]
      ]
     ]
