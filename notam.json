@@ -1,9 +1,9 @@
 {
- "fetchedAt": "2026-11-04T09:52:27+09:00",
- "fetchedAtUTC": "2026-11-04T00:52:27+00:00",
+ "fetchedAt": "2026-11-04T16:26:01+09:00",
+ "fetchedAtUTC": "2026-11-04T07:26:01+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1371,
- "count": 120,
+ "totalFetched": 1393,
+ "count": 119,
  "items": [
   {
    "no": "E4783/26",
@@ -14969,57 +14969,6 @@
       [
        127.12,
        34.75
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5123/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-02T23:00:00+00:00",
-   "end": "2026-11-04T04:00:00+00:00",
-   "endEst": false,
-   "schedule": "02 2300-2359, 03 0000-0300 2300-2359, 04 0000-0400",
-   "lower": 0,
-   "upper": 30,
-   "fromTxt": "SFC",
-   "toTxt": "3000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n342000N1243000E-342000N1254953E-334500N1254953E-334500N1243000E-34200\r\n0N1243000E",
-   "center": [
-    34.041667,
-    125.165694
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       124.5,
-       34.333333
-      ],
-      [
-       125.831389,
-       34.333333
-      ],
-      [
-       125.831389,
-       33.75
-      ],
-      [
-       124.5,
-       33.75
-      ],
-      [
-       124.5,
-       34.333333
       ]
      ]
     ]
