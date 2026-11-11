@@ -1,9 +1,9 @@
 {
- "fetchedAt": "2026-11-11T09:34:21+09:00",
- "fetchedAtUTC": "2026-11-11T00:34:21+00:00",
+ "fetchedAt": "2026-11-11T16:00:51+09:00",
+ "fetchedAtUTC": "2026-11-11T07:00:51+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1514,
- "count": 131,
+ "totalFetched": 1518,
+ "count": 129,
  "items": [
   {
    "no": "D3117/26",
@@ -12152,57 +12152,6 @@
    }
   },
   {
-   "no": "E5189/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-10T03:00:00+00:00",
-   "end": "2026-11-11T07:00:00+00:00",
-   "endEst": false,
-   "schedule": "10 0300-0500, 11 0500-0700",
-   "lower": 0,
-   "upper": 400,
-   "fromTxt": "SFC",
-   "toTxt": "FL400",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n370121N1245000E-370208N1253600E-363200N1253600E-363200N1245000E-37012\r\n1N1245000E",
-   "center": [
-    36.781181,
-    125.216667
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       124.833333,
-       37.0225
-      ],
-      [
-       125.6,
-       37.035556
-      ],
-      [
-       125.6,
-       36.533333
-      ],
-      [
-       124.833333,
-       36.533333
-      ],
-      [
-       124.833333,
-       37.0225
-      ]
-     ]
-    ]
-   }
-  },
-  {
    "no": "E5188/26",
    "kind": "R",
    "kindName": "임시비행제한구역",
@@ -13215,57 +13164,6 @@
       [
        127.12,
        34.75
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5220/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-11T02:15:00+00:00",
-   "end": "2026-11-11T02:45:00+00:00",
-   "endEst": false,
-   "schedule": "",
-   "lower": 0,
-   "upper": 170,
-   "fromTxt": "SFC",
-   "toTxt": "FL170",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n331000N1243005E-331002N1254558E-321844N1254548E-320640N1254044E-32062\r\n5N1243034E-331000N1243005E",
-   "center": [
-    32.784778,
-    125.242222
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       124.501389,
-       33.166667
-      ],
-      [
-       125.766111,
-       33.167222
-      ],
-      [
-       125.763333,
-       32.312222
-      ],
-      [
-       125.678889,
-       32.111111
-      ],
-      [
-       124.501389,
-       33.166667
       ]
      ]
     ]
