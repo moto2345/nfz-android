@@ -1,9 +1,9 @@
 {
- "fetchedAt": "2026-11-12T06:51:41+09:00",
- "fetchedAtUTC": "2026-11-11T21:51:41+00:00",
+ "fetchedAt": "2026-11-12T11:50:43+09:00",
+ "fetchedAtUTC": "2026-11-12T02:50:43+00:00",
  "source": "국토교통부 항공정보통합관리 xNOTAM (aim.koca.go.kr)",
- "totalFetched": 1447,
- "count": 121,
+ "totalFetched": 1466,
+ "count": 120,
  "items": [
   {
    "no": "D3122/26",
@@ -12098,6 +12098,57 @@
    }
   },
   {
+   "no": "E5292/26",
+   "kind": "R",
+   "kindName": "임시비행제한구역",
+   "series": "E",
+   "location": "RKRR",
+   "qcode": "QRTCA",
+   "qmean": "Temporary restricted area (specify area) / Activated",
+   "category": "temp",
+   "start": "2026-11-12T00:45:00+00:00",
+   "end": "2026-11-13T08:00:00+00:00",
+   "endEst": false,
+   "schedule": "12 0045-0800, 13 0000-0800",
+   "lower": 0,
+   "upper": 150,
+   "fromTxt": "SFC",
+   "toTxt": "FL150",
+   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n362000N1263100E-361800N1263500E-361207N1263057E-361718N1262500E-36200\r\n0N1263100E",
+   "center": [
+    36.280903,
+    126.508125
+   ],
+   "radiusM": null,
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       126.516667,
+       36.333333
+      ],
+      [
+       126.583333,
+       36.3
+      ],
+      [
+       126.515833,
+       36.201944
+      ],
+      [
+       126.416667,
+       36.288333
+      ],
+      [
+       126.516667,
+       36.333333
+      ]
+     ]
+    ]
+   }
+  },
+  {
    "no": "A1672/26",
    "kind": "U",
    "kindName": "드론 관련 구역",
@@ -12607,6 +12658,57 @@
    }
   },
   {
+   "no": "E5293/26",
+   "kind": "R",
+   "kindName": "임시비행제한구역",
+   "series": "E",
+   "location": "RKRR",
+   "qcode": "QRTCA",
+   "qmean": "Temporary restricted area (specify area) / Activated",
+   "category": "temp",
+   "start": "2026-11-12T23:00:00+00:00",
+   "end": "2026-11-13T00:00:00+00:00",
+   "endEst": false,
+   "schedule": "",
+   "lower": 0,
+   "upper": 150,
+   "fromTxt": "GND",
+   "toTxt": "FL150",
+   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n362000N1263100E-361800N1263500E-360200N1262400E-361300N1261100E-36200\r\n0N1263100E",
+   "center": [
+    36.220833,
+    126.420833
+   ],
+   "radiusM": null,
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       126.516667,
+       36.333333
+      ],
+      [
+       126.583333,
+       36.3
+      ],
+      [
+       126.4,
+       36.033333
+      ],
+      [
+       126.183333,
+       36.216667
+      ],
+      [
+       126.516667,
+       36.333333
+      ]
+     ]
+    ]
+   }
+  },
+  {
    "no": "A1667/26",
    "kind": "U",
    "kindName": "드론 활동 구역",
@@ -13055,386 +13157,6 @@
       [
        127.5325,
        36.61858
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5269/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-13T05:00:00+00:00",
-   "end": "2026-11-14T02:30:00+00:00",
-   "endEst": false,
-   "schedule": "13 0500-0530, 14 0200-0230",
-   "lower": 0,
-   "upper": 70,
-   "fromTxt": "SFC",
-   "toTxt": "7000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\n2NM EITHER SIDE OF LINE \r\n370228N1275305E-370731N1275225E-370746N1275609E",
-   "center": [
-    37.098611,
-    127.898056
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       127.884722,
-       37.041111
-      ],
-      [
-       127.873611,
-       37.125278
-      ],
-      [
-       127.935833,
-       37.129444
-      ],
-      [
-       127.884722,
-       37.041111
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5270/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-13T05:00:00+00:00",
-   "end": "2026-11-14T02:30:00+00:00",
-   "endEst": false,
-   "schedule": "13 0500-0530, 14 0200-0230",
-   "lower": 0,
-   "upper": 70,
-   "fromTxt": "SFC",
-   "toTxt": "7000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\n1NM EITHER SIDE OF LINE 370746N1275609E-370233N1280024E",
-   "center": [
-    37.083333,
-    127.966667
-   ],
-   "radiusM": 11112,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       127.966667,
-       37.183827
-      ],
-      [
-       127.982999,
-       37.182967
-      ],
-      [
-       127.999052,
-       37.180403
-      ],
-      [
-       128.01455,
-       37.176177
-      ],
-      [
-       128.02923,
-       37.170364
-      ],
-      [
-       128.042838,
-       37.16306
-      ],
-      [
-       128.055144,
-       37.154393
-      ],
-      [
-       128.065936,
-       37.14451
-      ],
-      [
-       128.075029,
-       37.13358
-      ],
-      [
-       128.082268,
-       37.121791
-      ],
-      [
-       128.087529,
-       37.109343
-      ],
-      [
-       128.090722,
-       37.09645
-      ],
-      [
-       128.091793,
-       37.083333
-      ],
-      [
-       128.090722,
-       37.070216
-      ],
-      [
-       128.087529,
-       37.057324
-      ],
-      [
-       128.082268,
-       37.044876
-      ],
-      [
-       128.075029,
-       37.033086
-      ],
-      [
-       128.065936,
-       37.022157
-      ],
-      [
-       128.055144,
-       37.012273
-      ],
-      [
-       128.042838,
-       37.003606
-      ],
-      [
-       128.02923,
-       36.996303
-      ],
-      [
-       128.01455,
-       36.990489
-      ],
-      [
-       127.999052,
-       36.986264
-      ],
-      [
-       127.982999,
-       36.983699
-      ],
-      [
-       127.966667,
-       36.98284
-      ],
-      [
-       127.950334,
-       36.983699
-      ],
-      [
-       127.934282,
-       36.986264
-      ],
-      [
-       127.918783,
-       36.990489
-      ],
-      [
-       127.904104,
-       36.996303
-      ],
-      [
-       127.890495,
-       37.003606
-      ],
-      [
-       127.878189,
-       37.012273
-      ],
-      [
-       127.867398,
-       37.022157
-      ],
-      [
-       127.858304,
-       37.033086
-      ],
-      [
-       127.851065,
-       37.044876
-      ],
-      [
-       127.845804,
-       37.057324
-      ],
-      [
-       127.842611,
-       37.070216
-      ],
-      [
-       127.841541,
-       37.083333
-      ],
-      [
-       127.842611,
-       37.09645
-      ],
-      [
-       127.845804,
-       37.109343
-      ],
-      [
-       127.851065,
-       37.121791
-      ],
-      [
-       127.858304,
-       37.13358
-      ],
-      [
-       127.867398,
-       37.14451
-      ],
-      [
-       127.878189,
-       37.154393
-      ],
-      [
-       127.890495,
-       37.16306
-      ],
-      [
-       127.904104,
-       37.170364
-      ],
-      [
-       127.918783,
-       37.176177
-      ],
-      [
-       127.934282,
-       37.180403
-      ],
-      [
-       127.950334,
-       37.182967
-      ],
-      [
-       127.966667,
-       37.183827
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5271/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-13T05:00:00+00:00",
-   "end": "2026-11-14T02:30:00+00:00",
-   "endEst": false,
-   "schedule": "13 0500-0530, 14 0200-0230",
-   "lower": 0,
-   "upper": 70,
-   "fromTxt": "SFC",
-   "toTxt": "7000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\n1NM EITHER SIDE OF LINE \r\n370101N1275313E-365604N1275339E-365619N1275710E-370233N1280024E",
-   "center": [
-    36.983125,
-    127.935139
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       127.886944,
-       37.016944
-      ],
-      [
-       127.894167,
-       36.934444
-      ],
-      [
-       127.952778,
-       36.938611
-      ],
-      [
-       128.006667,
-       37.0425
-      ],
-      [
-       127.886944,
-       37.016944
-      ]
-     ]
-    ]
-   }
-  },
-  {
-   "no": "E5274/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-13T07:20:00+00:00",
-   "end": "2026-11-14T04:50:00+00:00",
-   "endEst": false,
-   "schedule": "13 0720-0750, 14 0420-0450",
-   "lower": 0,
-   "upper": 70,
-   "fromTxt": "SFC",
-   "toTxt": "7000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW:\r\n1NM EITHER SIDE OF LINE \r\n365637N1280351E-365227N1280335E-364855N1280354E-364608N1275745E-36460\r\n5N1275432E-370101N1275313E",
-   "center": [
-    36.883778,
-    128.007667
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       128.064167,
-       36.943611
-      ],
-      [
-       128.059722,
-       36.874167
-      ],
-      [
-       128.065,
-       36.815278
-      ],
-      [
-       127.9625,
-       36.768889
-      ],
-      [
-       127.886944,
-       37.016944
-      ],
-      [
-       128.064167,
-       36.943611
       ]
      ]
     ]
@@ -15688,7 +15410,7 @@
    }
   },
   {
-   "no": "E5267/26",
+   "no": "E5296/26",
    "kind": "R",
    "kindName": "임시비행제한구역",
    "series": "E",
@@ -15697,17 +15419,17 @@
    "qmean": "Temporary restricted area (specify area) / Activated",
    "category": "temp",
    "start": "2026-11-16T04:00:00+00:00",
-   "end": "2026-11-19T09:00:00+00:00",
+   "end": "2026-11-20T09:00:00+00:00",
    "endEst": false,
-   "schedule": "16 19 0400-0900",
+   "schedule": "16 0400-0900, 19 0000-0900, 20 0400-0900",
    "lower": 0,
    "upper": 400,
    "fromTxt": "SFC",
    "toTxt": "FL400",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n373200N1294900E-373200N1301500E-371900N1301500E-371900N1294900E-37320\r\n0N1294900E",
+   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n373200N1294900E-373200N1301500E-371900N1301500E-371900N1294900E-\r\n373200N1294900E",
    "center": [
-    37.425,
-    130.033333
+    37.446667,
+    129.99
    ],
    "radiusM": null,
    "geometry": {
@@ -16465,6 +16187,65 @@
       [
        129.67,
        36.3168
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "no": "E5291/26",
+   "kind": "R",
+   "kindName": "임시비행제한구역",
+   "series": "E",
+   "location": "RKRR",
+   "qcode": "QRTCA",
+   "qmean": "Temporary restricted area (specify area) / Activated",
+   "category": "temp",
+   "start": "2026-11-17T01:00:00+00:00",
+   "end": "2026-11-19T03:00:00+00:00",
+   "endEst": false,
+   "schedule": "17 18 0100-0700, 19 0000-0300",
+   "lower": 0,
+   "upper": 50,
+   "fromTxt": "SFC",
+   "toTxt": "5000FT AMSL",
+   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n375639N1280522E-375642N1281051E-375538N1281416E-375401N1281539E-37494\r\n0N1281136E-375010N1280649E-375501N1280321E-375639N1280522E",
+   "center": [
+    37.91627,
+    128.146825
+   ],
+   "radiusM": null,
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       128.089444,
+       37.944167
+      ],
+      [
+       128.180833,
+       37.945
+      ],
+      [
+       128.237778,
+       37.927222
+      ],
+      [
+       128.260833,
+       37.900278
+      ],
+      [
+       128.113611,
+       37.836111
+      ],
+      [
+       128.055833,
+       37.916944
+      ],
+      [
+       128.089444,
+       37.944167
       ]
      ]
     ]
@@ -18497,57 +18278,6 @@
    }
   },
   {
-   "no": "E5265/26",
-   "kind": "R",
-   "kindName": "임시비행제한구역",
-   "series": "E",
-   "location": "RKRR",
-   "qcode": "QRTCA",
-   "qmean": "Temporary restricted area (specify area) / Activated",
-   "category": "temp",
-   "start": "2026-11-19T00:00:00+00:00",
-   "end": "2026-11-19T02:00:00+00:00",
-   "endEst": false,
-   "schedule": "",
-   "lower": 0,
-   "upper": 50,
-   "fromTxt": "SFC",
-   "toTxt": "5000FT AMSL",
-   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n374500N1292715E-374500N1294600E-373000N1294600E-373000N1292715E-37450\r\n0N1292715E",
-   "center": [
-    37.625,
-    129.610417
-   ],
-   "radiusM": null,
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       129.454167,
-       37.75
-      ],
-      [
-       129.766667,
-       37.75
-      ],
-      [
-       129.766667,
-       37.5
-      ],
-      [
-       129.454167,
-       37.5
-      ],
-      [
-       129.454167,
-       37.75
-      ]
-     ]
-    ]
-   }
-  },
-  {
    "no": "E5242/26",
    "kind": "R",
    "kindName": "임시비행제한구역",
@@ -19139,6 +18869,57 @@
    "category": "temp",
    "start": "2026-11-21T05:00:00+00:00",
    "end": "2026-11-21T10:00:00+00:00",
+   "endEst": false,
+   "schedule": "",
+   "lower": 0,
+   "upper": 20,
+   "fromTxt": "SFC",
+   "toTxt": "2000FT AMSL",
+   "text": "TEMPO RESTRICTED AREA ACT AS FLW\r\nAREA BOUNDED BY THE FOLLOWING\r\n363200N1245000E-363200N1253600E-360501N1253604E-360455N1243132E-36235\r\n6N1243126E-363200N1245000E",
+   "center": [
+    36.353111,
+    125.078667
+   ],
+   "radiusM": null,
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       124.833333,
+       36.533333
+      ],
+      [
+       125.6,
+       36.533333
+      ],
+      [
+       125.601111,
+       36.083611
+      ],
+      [
+       124.525556,
+       36.081944
+      ],
+      [
+       124.833333,
+       36.533333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "no": "E5294/26",
+   "kind": "R",
+   "kindName": "임시비행제한구역",
+   "series": "E",
+   "location": "RKRR",
+   "qcode": "QRTCA",
+   "qmean": "Temporary restricted area (specify area) / Activated",
+   "category": "temp",
+   "start": "2026-11-23T04:00:00+00:00",
+   "end": "2026-11-23T09:00:00+00:00",
    "endEst": false,
    "schedule": "",
    "lower": 0,
